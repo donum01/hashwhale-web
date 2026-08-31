@@ -11,11 +11,7 @@ export type AssetSymbol = "BTC" | "ETH" | "USDT"
 export interface AssetConfig {
   symbol: AssetSymbol
   name: string
-  /** Mock spot price in USD — replace with a live price feed. */
   price: number
-  /** Mock available wallet balance for the "Max" button. */
-  maxBalance: number
-  /** Brand color for the asset chip. */
   color: string
 }
 
@@ -44,9 +40,9 @@ export const LTV_DANGER_THRESHOLD = 70
 /* --- Collateral assets ---------------------------------------------------- */
 
 export const ASSETS: Record<AssetSymbol, AssetConfig> = {
-  BTC: { symbol: "BTC", name: "Bitcoin", price: 64000, maxBalance: 1.5, color: "#f7931a" },
-  ETH: { symbol: "ETH", name: "Ethereum", price: 3400, maxBalance: 12, color: "#627eea" },
-  USDT: { symbol: "USDT", name: "Tether", price: 1, maxBalance: 25000, color: "#26a17b" },
+  BTC: { symbol: "BTC", name: "Bitcoin", price: 64000, color: "#f7931a" },
+  ETH: { symbol: "ETH", name: "Ethereum", price: 3400, color: "#627eea" },
+  USDT: { symbol: "USDT", name: "Tether", price: 1, color: "#26a17b" },
 }
 
 export const ASSET_LIST: AssetConfig[] = [ASSETS.BTC, ASSETS.ETH, ASSETS.USDT]
@@ -101,6 +97,8 @@ export const currencyUsdPrecise = new Intl.NumberFormat("en-US", {
 import type { components } from "./api-schema"
 
 type ApiLoan = components["schemas"]["LoanResponse"]
+type ApiWalletBalance = components["schemas"]["WalletBalanceResponse"]
+
 
 export function apiLoanToLoan(apiLoan: ApiLoan): Loan {
   return {
@@ -108,5 +106,19 @@ export function apiLoanToLoan(apiLoan: ApiLoan): Loan {
     asset: apiLoan.collateralAsset as AssetSymbol,
     collateralAmount: Number(apiLoan.collateralAmount),
     borrowedUsdt: Number(apiLoan.borrowedAmount),
+  }
+}
+
+export interface WalletBalance {
+  asset: AssetSymbol
+  availableAmount: number
+  lockedAmount: number
+}
+
+export function apiBalanceToBalance(apiBalance: ApiWalletBalance): WalletBalance {
+  return {
+    asset: apiBalance.asset as AssetSymbol,
+    availableAmount: Number(apiBalance.availableAmount),
+    lockedAmount: Number(apiBalance.lockedAmount),
   }
 }

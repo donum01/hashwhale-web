@@ -11,6 +11,7 @@ import {
   computeLtv,
   currencyUsd,
   type AssetSymbol,
+  type WalletBalance,
 } from "@/lib/borrow"
 import { AssetChip } from "./asset-chip"
 import { LtvBar } from "./ltv-bar"
@@ -19,8 +20,10 @@ type BorrowResult = { ok: true } | { ok: false; message: string }
 
 export function BorrowForm({
   onBorrow,
+  balances,
 }: {
   onBorrow: (params: { asset: AssetSymbol; collateralAmount: number; borrowedAmount: number }) => Promise<BorrowResult>
+  balances: WalletBalance[]
 }) {
   const [asset, setAsset] = useState<AssetSymbol>("BTC")
   const [collateral, setCollateral] = useState("")
@@ -34,13 +37,14 @@ export function BorrowForm({
   const collateralValue = collateralValueUsd(asset, collateralNum)
   const ltv = useMemo(() => computeLtv(collateralValue, borrowNum), [collateralValue, borrowNum])
 
-  const config = ASSETS[asset]
-  const overMax = collateralNum > config.maxBalance
+  const currentBalance = balances.find((b) => b.asset === asset)?.availableAmount ?? 0
+
+  const overMax = collateralNum > currentBalance
   const valid =
     collateralNum > 0 && borrowNum > 0 && !overMax && ltv > 0 && ltv <= MAX_LTV && status === "idle"
 
   function fillMax() {
-    setCollateral(String(config.maxBalance))
+    setCollateral(String(currentBalance))
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -125,7 +129,7 @@ export function BorrowForm({
               Collateral amount
             </label>
             <span className="text-xs" style={{ color: overMax ? "var(--hw-error)" : "var(--hw-muted)" }}>
-              Balance: {config.maxBalance} {asset}
+              Balance: {currentBalance} {asset}
             </span>
           </div>
           <div className="relative">

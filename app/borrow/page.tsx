@@ -6,9 +6,10 @@ import { BorrowForm } from "@/components/hashwhale/borrow-form"
 import { ThemeToggle } from "@/components/hashwhale/theme-toggle"
 import { Toast } from "@/components/hashwhale/toast"
 import { Wordmark } from "@/components/hashwhale/wordmark"
-import { apiLoanToLoan, currencyUsd, type Loan, type AssetSymbol } from "@/lib/borrow"
+import { apiLoanToLoan, apiBalanceToBalance, currencyUsd, type Loan, type WalletBalance, type AssetSymbol } from "@/lib/borrow"
 import { api } from "@/lib/api"
 import { getUserId } from "@/lib/auth"
+
 
 export default function BorrowPage() {
   const [theme, setTheme] = useState<"light" | "dark">("dark")
@@ -16,7 +17,7 @@ export default function BorrowPage() {
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
+  const [balances, setBalances] = useState<WalletBalance[]>([])
   const userId = getUserId()
 
   function showToast(message: string) {
@@ -26,23 +27,26 @@ export default function BorrowPage() {
   }
 
   useEffect(() => {
-    async function loadLoans() {
+    async function loadData() {
       if (!userId) {
         setLoading(false)
         return
       }
-      const { data, error } = await api.GET("/api/borrow/{userId}/loans", {
-        params: { path: { userId } },
-      })
-      if (data) {
-        setLoans(data.map(apiLoanToLoan))
-      }
-      if (error) {
-        showToast("Could not load your loans")
+
+      const [loansRes, balancesRes] = await Promise.all([
+        api.GET("/api/borrow/{userId}/loans", { params: { path: { userId } } }),
+        api.GET("/api/wallet/{userId}/balances", { params: { path: { userId } } }),
+      ])
+
+      if (loansRes.data) setLoans(loansRes.data.map(apiLoanToLoan))
+      if (balancesRes.data) setBalances(balancesRes.data.map(apiBalanceToBalance))
+
+      if (loansRes.error || balancesRes.error) {
+        showToast("Could not load your account data")
       }
       setLoading(false)
     }
-    loadLoans()
+    loadData()
   }, [userId])
 
   async function handleBorrow(params: {
@@ -126,7 +130,7 @@ export default function BorrowPage() {
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
-            <BorrowForm onBorrow={handleBorrow} />
+            <BorrowForm onBorrow={handleBorrow} balances={balances} />
             <ActiveLoans loans={loans} onRepay={handleRepay} />
           </div>
         )}

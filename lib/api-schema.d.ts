@@ -79,6 +79,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/wallet/{userId}/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a user's wallet balances */
+        get: operations["getBalances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/me": {
         parameters: {
             query?: never;
@@ -202,6 +219,18 @@ export interface components {
              * @example eyJhbGciOiJIUzI1NiJ9...
              */
             token?: string;
+        };
+        /** @description Balance for one wallet asset */
+        WalletBalanceResponse: {
+            /**
+             * @example BTC
+             * @enum {string}
+             */
+            asset?: "BTC" | "ETH" | "USDT" | "USDC";
+            /** @example 0.75 */
+            availableAmount?: number;
+            /** @example 0.25 */
+            lockedAmount?: number;
         };
         /** @description Authenticated user profile */
         UserResponse: {
@@ -412,6 +441,46 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["AuthResponse"];
+                };
+            };
+        };
+    };
+    getBalances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Balances returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["WalletBalanceResponse"][];
+                };
+            };
+            /** @description Invalid user id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid, or expired JWT */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiErrorResponse"];
                 };
             };
         };
