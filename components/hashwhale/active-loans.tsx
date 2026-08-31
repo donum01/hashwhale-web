@@ -28,7 +28,7 @@ function LtvBadge({ ltv }: { ltv: number }) {
   )
 }
 
-function LoanCard({ loan, onRepay }: { loan: Loan; onRepay: (id: string) => void }) {
+function LoanCard({ loan, onRepay }: { loan: Loan; onRepay: (id: number) => Promise<void> }) {
   const [repaying, setRepaying] = useState(false)
   const ltv = loanLtv(loan)
   const liq = liquidationPrice(loan)
@@ -36,9 +36,8 @@ function LoanCard({ loan, onRepay }: { loan: Loan; onRepay: (id: string) => void
 
   async function repay() {
     setRepaying(true)
-    console.log("[v0] mock repay:", loan.id)
-    await new Promise((r) => setTimeout(r, 900))
-    onRepay(loan.id)
+    await onRepay(loan.id)
+    setRepaying(false)
   }
 
   return (
@@ -119,7 +118,7 @@ function EmptyState() {
   )
 }
 
-export function ActiveLoans({ loans, onRepay }: { loans: Loan[]; onRepay: (id: string) => void }) {
+export function ActiveLoans({ loans, onRepay }: { loans: Loan[]; onRepay: (id: number) => Promise<void> }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-baseline justify-between">

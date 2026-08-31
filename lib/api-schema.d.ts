@@ -79,6 +79,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the current authenticated user */
+        get: operations["getCurrentUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -185,6 +202,26 @@ export interface components {
              * @example eyJhbGciOiJIUzI1NiJ9...
              */
             token?: string;
+        };
+        /** @description Authenticated user profile */
+        UserResponse: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id?: number;
+            /** @example satoshi@example.com */
+            email?: string;
+            /**
+             * @example VERIFIED
+             * @enum {string}
+             */
+            kycStatus?: "NOT_STARTED" | "PENDING" | "VERIFIED";
+            /**
+             * Format: date-time
+             * @example 2026-08-30T12:00:00Z
+             */
+            createdAt?: string;
         };
     };
     responses: never;
@@ -375,6 +412,35 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["AuthResponse"];
+                };
+            };
+        };
+    };
+    getCurrentUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authenticated user returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["UserResponse"];
+                };
+            };
+            /** @description Missing, invalid, or expired JWT */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["UserResponse"];
                 };
             };
         };

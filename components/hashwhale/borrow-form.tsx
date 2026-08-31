@@ -11,16 +11,22 @@ import {
   computeLtv,
   currencyUsd,
   type AssetSymbol,
-  type Loan,
 } from "@/lib/borrow"
 import { AssetChip } from "./asset-chip"
 import { LtvBar } from "./ltv-bar"
 
-export function BorrowForm({ onBorrow }: { onBorrow: (loan: Loan) => void }) {
+type BorrowResult = { ok: true } | { ok: false; message: string }
+
+export function BorrowForm({
+  onBorrow,
+}: {
+  onBorrow: (params: { asset: AssetSymbol; collateralAmount: number; borrowedAmount: number }) => Promise<BorrowResult>
+}) {
   const [asset, setAsset] = useState<AssetSymbol>("BTC")
   const [collateral, setCollateral] = useState("")
   const [borrow, setBorrow] = useState("")
   const [status, setStatus] = useState<"idle" | "loading">("idle")
+  const [formError, setFormError] = useState<string | null>(null)
 
   const collateralNum = Number.parseFloat(collateral) || 0
   const borrowNum = Number.parseFloat(borrow) || 0
@@ -41,17 +47,20 @@ export function BorrowForm({ onBorrow }: { onBorrow: (loan: Loan) => void }) {
     e.preventDefault()
     if (!valid) return
     setStatus("loading")
-    // Simulated network call — swap for a real POST /loans later.
-    console.log("[v0] mock borrow submit:", { asset, collateralNum, borrowNum, ltv })
-    await new Promise((r) => setTimeout(r, 1100))
-    onBorrow({
-      id: `ln_${Date.now()}`,
+    setFormError(null)
+
+    const result = await onBorrow({
       asset,
       collateralAmount: collateralNum,
-      borrowedUsdt: borrowNum,
+      borrowedAmount: borrowNum,
     })
-    setCollateral("")
-    setBorrow("")
+
+    if (result.ok) {
+      setCollateral("")
+      setBorrow("")
+    } else {
+      setFormError(result.message)
+    }
     setStatus("idle")
   }
 
@@ -64,8 +73,21 @@ export function BorrowForm({ onBorrow }: { onBorrow: (loan: Loan) => void }) {
         Deposit collateral and borrow USDT instantly.
       </p>
 
+      {formError ? (
+        <div
+          className="hw-fade-slide mb-4 rounded-lg px-3 py-2.5 text-sm font-medium"
+          style={{
+            color: "var(--hw-error)",
+            background: "rgba(255, 100, 13, 0.1)",
+            border: "1px solid rgba(255, 100, 13, 0.3)",
+          }}
+          role="alert"
+        >
+          {formError}
+        </div>
+      ) : null}
+
       <form onSubmit={onSubmit} className="flex flex-col gap-5">
-        {/* Collateral asset */}
         <div className="flex flex-col gap-1.5">
           <label htmlFor="asset" className="text-sm font-medium" style={{ color: "var(--hw-text)" }}>
             Collateral asset
@@ -97,7 +119,6 @@ export function BorrowForm({ onBorrow }: { onBorrow: (loan: Loan) => void }) {
           </div>
         </div>
 
-        {/* Collateral amount + Max */}
         <div className="flex flex-col gap-1.5">
           <div className="flex items-baseline justify-between">
             <label htmlFor="collateral" className="text-sm font-medium" style={{ color: "var(--hw-text)" }}>
@@ -138,7 +159,6 @@ export function BorrowForm({ onBorrow }: { onBorrow: (loan: Loan) => void }) {
           ) : null}
         </div>
 
-        {/* Borrow amount */}
         <div className="flex flex-col gap-1.5">
           <label htmlFor="borrow" className="text-sm font-medium" style={{ color: "var(--hw-text)" }}>
             Borrow amount
@@ -164,7 +184,6 @@ export function BorrowForm({ onBorrow }: { onBorrow: (loan: Loan) => void }) {
           </div>
         </div>
 
-        {/* Live LTV */}
         <div
           className="rounded-lg p-4"
           style={{ background: "var(--hw-track)", border: "1px solid var(--hw-input-border)" }}
@@ -177,7 +196,6 @@ export function BorrowForm({ onBorrow }: { onBorrow: (loan: Loan) => void }) {
           ) : null}
         </div>
 
-        {/* Static rate */}
         <div
           className="flex items-center justify-between rounded-lg px-4 py-3 text-sm"
           style={{ background: "var(--hw-input-bg)", border: "1px solid var(--hw-input-border)" }}

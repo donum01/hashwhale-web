@@ -20,7 +20,7 @@ export interface AssetConfig {
 }
 
 export interface Loan {
-  id: string
+  id: number
   asset: AssetSymbol
   collateralAmount: number
   borrowedUsdt: number
@@ -50,17 +50,6 @@ export const ASSETS: Record<AssetSymbol, AssetConfig> = {
 }
 
 export const ASSET_LIST: AssetConfig[] = [ASSETS.BTC, ASSETS.ETH, ASSETS.USDT]
-
-/* --- Mock active loans (one per LTV tier for demo) ------------------------ */
-
-export const MOCK_LOANS: Loan[] = [
-  // ~35% LTV → green / safe
-  { id: "ln_001", asset: "BTC", collateralAmount: 1, borrowedUsdt: 22400 },
-  // ~58% LTV → amber / warning
-  { id: "ln_002", asset: "ETH", collateralAmount: 5, borrowedUsdt: 9860 },
-  // ~72% LTV → orange / danger
-  { id: "ln_003", asset: "BTC", collateralAmount: 0.5, borrowedUsdt: 23040 },
-]
 
 /* --- Derived helpers ------------------------------------------------------ */
 
@@ -108,3 +97,16 @@ export const currencyUsdPrecise = new Intl.NumberFormat("en-US", {
   currency: "USD",
   maximumFractionDigits: 2,
 })
+
+import type { components } from "./api-schema"
+
+type ApiLoan = components["schemas"]["LoanResponse"]
+
+export function apiLoanToLoan(apiLoan: ApiLoan): Loan {
+  return {
+    id: apiLoan.id!,
+    asset: apiLoan.collateralAsset as AssetSymbol,
+    collateralAmount: Number(apiLoan.collateralAmount),
+    borrowedUsdt: Number(apiLoan.borrowedAmount),
+  }
+}

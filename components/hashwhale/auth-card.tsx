@@ -6,7 +6,8 @@ import { Field } from "./field"
 import { Wordmark } from "./wordmark"
 import { KycStatus, type KycState } from "./kyc-status"
 import { api } from "@/lib/api"
-import { setToken } from "@/lib/auth"
+import { setToken, setUserId } from "@/lib/auth"
+
 
 type SubmitResult = { ok: true } | { ok: false; message: string }
 
@@ -26,6 +27,11 @@ async function handleLogin(values: {
 
   if (data?.token) {
     setToken(data.token)
+
+    const { data: me } = await api.GET("/api/auth/me")
+    if (me?.id) {
+      setUserId(me.id)
+    }
   }
 
   return { ok: true }
