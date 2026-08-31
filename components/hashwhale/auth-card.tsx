@@ -1,13 +1,13 @@
 "use client"
 
 import { useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { Field } from "./field"
 import { Wordmark } from "./wordmark"
 import { KycStatus, type KycState } from "./kyc-status"
 import { api } from "@/lib/api"
 import { setToken, setUserId } from "@/lib/auth"
-
 
 type SubmitResult = { ok: true } | { ok: false; message: string }
 
@@ -45,7 +45,7 @@ async function handleSignup(values: {
 }): Promise<SubmitResult> {
   // Note: backend RegisterRequest currently only accepts email + password.
   // `country` is collected for future use but not yet sent/persisted.
-  const { data, error } = await api.POST("/api/auth/register", {
+  const { error } = await api.POST("/api/auth/register", {
     body: { email: values.email, password: values.password },
   })
 
@@ -55,8 +55,9 @@ async function handleSignup(values: {
     return { ok: false, message }
   }
 
-  // Registration succeeded — log the new user in immediately for a smooth flow
-  return handleLogin({ email: values.email, password: values.password })
+  // Registration succeeded — do NOT auto-login. Caller sends the user back
+  // to the Log In tab with a success message instead.
+  return { ok: true }
 }
 
 const COUNTRIES = [
@@ -86,6 +87,7 @@ interface FormErrors {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function AuthCard() {
+  const router = useRouter()
   const [mode, setMode] = useState<Mode>("login")
   const [showPassword, setShowPassword] = useState(false)
   const [status, setStatus] = useState<"idle" | "loading" | "success">("idle")
@@ -95,6 +97,7 @@ export function AuthCard() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [country, setCountry] = useState("")
   const [errors, setErrors] = useState<FormErrors>({})
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   // KYC status is hidden by default — flip `show` on once wired to real data.
   const [kyc] = useState<KycState>("not_started")
@@ -106,6 +109,7 @@ export function AuthCard() {
     setMode(next)
     setErrors({})
     setStatus("idle")
+    setSuccessMessage(null)
   }
 
   function validate(): FormErrors {
@@ -131,13 +135,27 @@ export function AuthCard() {
     if (Object.keys(found).length > 0) return
 
     setStatus("loading")
+    setSuccessMessage(null)
+
     const result =
       mode === "login"
         ? await handleLogin({ email, password })
         : await handleSignup({ email, password, confirmPassword, country })
 
     if (result.ok) {
-      setStatus("success")
+      if (mode === "signup") {
+        // Switch to Log In tab, show success message, clear passwords, keep email
+        setStatus("idle")
+        setPassword("")
+        setConfirmPassword("")
+        setMode("login")
+        setErrors({})
+        setSuccessMessage("Account created successfully. Please log in.")
+      } else {
+        // Login succeeded — go into the app
+        setStatus("success")
+        router.push("/borrow")
+      }
     } else {
       setStatus("idle")
       setErrors({ form: result.message })
@@ -145,7 +163,7 @@ export function AuthCard() {
   }
 
   const submitLabel = useMemo(() => {
-    if (status === "success") return mode === "login" ? "Welcome back" : "Account created"
+    if (status === "success") return "Welcome back"
     return mode === "login" ? "Log In" : "Create account"
   }, [status, mode])
 
@@ -183,6 +201,21 @@ export function AuthCard() {
           Sign Up
         </button>
       </div>
+
+      {/* Success message (e.g. after signup) */}
+      {successMessage ? (
+        <div
+          className="hw-fade-slide mb-4 rounded-lg px-3 py-2.5 text-sm font-medium"
+          style={{
+            color: "var(--hw-primary)",
+            background: "var(--hw-primary-soft)",
+            border: "1px solid rgba(13, 83, 255, 0.3)",
+          }}
+          role="status"
+        >
+          {successMessage}
+        </div>
+      ) : null}
 
       {/* Form-level error */}
       {errors.form ? (
