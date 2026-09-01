@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { ArrowDownToLine, ArrowUpFromLine, Loader2 } from "lucide-react"
-import { currencyUsd, currencyUsdPrecise, type AssetSymbol } from "@/lib/borrow"
+import { currencyUsd, type AssetPricesUsd, type AssetSymbol } from "@/lib/borrow"
 import { balanceValueUsd, type WalletBalance } from "@/lib/wallet"
 import { AssetChip } from "./asset-chip"
 
@@ -10,10 +10,12 @@ type ActionResult = { ok: true } | { ok: false; message: string }
 
 export function WalletBalanceCard({
   balance,
+  usdPrices,
   onDeposit,
   onWithdraw,
 }: {
   balance: WalletBalance
+  usdPrices: AssetPricesUsd
   onDeposit: (asset: AssetSymbol, amount: number) => Promise<ActionResult>
   onWithdraw: (asset: AssetSymbol, amount: number) => Promise<ActionResult>
 }) {
@@ -66,7 +68,7 @@ export function WalletBalanceCard({
             </p>
             <p className="text-xs" style={{ color: "var(--hw-muted)" }}>
               {balance.availableAmount + balance.lockedAmount > 0
-                ? currencyUsd.format(balanceValueUsd(balance))
+                ? currencyUsd.format(balanceValueUsd(balance, usdPrices))
                 : "No balance yet"}
             </p>
           </div>
@@ -86,22 +88,25 @@ export function WalletBalanceCard({
           <button
             type="button"
             onClick={() => openMode("deposit")}
-            className="hw-btn-outline flex h-9 items-center justify-center gap-1.5 text-sm font-semibold"
+            className="hw-btn-outline flex h-9 items-center justify-center gap-1.5 text-xs font-semibold"
           >
             <ArrowDownToLine className="h-3.5 w-3.5" />
-            Deposit
+            Simulate deposit
           </button>
           <button
             type="button"
             onClick={() => openMode("withdraw")}
-            className="hw-btn-outline flex h-9 items-center justify-center gap-1.5 text-sm font-semibold"
+            className="hw-btn-outline flex h-9 items-center justify-center gap-1.5 text-xs font-semibold"
           >
             <ArrowUpFromLine className="h-3.5 w-3.5" />
-            Withdraw
+            Simulate withdrawal
           </button>
         </div>
       ) : (
         <div className="hw-fade-slide mt-4 flex flex-col gap-2.5">
+          <p className="text-xs font-medium" style={{ color: "var(--hw-primary)" }}>
+            Simulation only — this changes the demo ledger; no real funds move.
+          </p>
           {error ? (
             <p className="text-xs font-medium" style={{ color: "var(--hw-error)" }}>
               {error}
@@ -148,9 +153,9 @@ export function WalletBalanceCard({
               {status === "loading" ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : mode === "deposit" ? (
-                "Confirm"
+                "Simulate deposit"
               ) : (
-                "Confirm"
+                "Simulate withdrawal"
               )}
             </button>
           </div>

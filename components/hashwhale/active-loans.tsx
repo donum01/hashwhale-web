@@ -1,20 +1,22 @@
 "use client"
 
 import { useState } from "react"
-import { Loader2, Wallet } from "lucide-react"
+import { CalendarClock, Loader2, Wallet } from "lucide-react"
 import {
   currencyUsd,
   currencyUsdPrecise,
+  loanDateTimeFormatter,
   liquidationPrice,
   loanLtv,
   ltvTier,
   ltvTierColorVar,
+  type BorrowConfiguration,
   type Loan,
 } from "@/lib/borrow"
 import { AssetChip } from "./asset-chip"
 
-function LtvBadge({ ltv }: { ltv: number }) {
-  const tier = ltvTier(ltv)
+function LtvBadge({ ltv, configuration }: { ltv: number; configuration: BorrowConfiguration }) {
+  const tier = ltvTier(ltv, configuration)
   const color = ltvTierColorVar(tier)
   return (
     <span
@@ -28,11 +30,19 @@ function LtvBadge({ ltv }: { ltv: number }) {
   )
 }
 
-function LoanCard({ loan, onRepay }: { loan: Loan; onRepay: (id: number) => Promise<void> }) {
+function LoanCard({
+  loan,
+  configuration,
+  onRepay,
+}: {
+  loan: Loan
+  configuration: BorrowConfiguration
+  onRepay: (id: number) => Promise<void>
+}) {
   const [repaying, setRepaying] = useState(false)
-  const ltv = loanLtv(loan)
-  const liq = liquidationPrice(loan)
-  const showLiqWarning = ltv > 60
+  const ltv = loanLtv(loan, configuration)
+  const liq = liquidationPrice(loan, configuration)
+  const showLiqWarning = ltv >= configuration.warningLtvPercent
 
   async function repay() {
     setRepaying(true)
@@ -54,7 +64,7 @@ function LoanCard({ loan, onRepay }: { loan: Loan; onRepay: (id: number) => Prom
             </p>
           </div>
         </div>
-        <LtvBadge ltv={ltv} />
+        <LtvBadge ltv={ltv} configuration={configuration} />
       </div>
 
       <div className="mt-4 flex items-end justify-between">
@@ -92,6 +102,17 @@ function LoanCard({ loan, onRepay }: { loan: Loan; onRepay: (id: number) => Prom
       >
         Liquidation price: {currencyUsdPrecise.format(liq)}
       </p>
+      <p className="mt-1 text-xs tabular-nums" style={{ color: "var(--hw-muted)" }}>
+        Interest rate: {loan.interestRateApr.toFixed(2)}% APR
+      </p>
+      <p
+        className="mt-2 flex items-center gap-1.5 text-xs"
+        style={{ color: "var(--hw-muted)" }}
+      >
+        <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
+        <span>Opened</span>
+        <time dateTime={loan.createdAt}>{loanDateTimeFormatter.format(new Date(loan.createdAt))}</time>
+      </p>
     </div>
   )
 }
@@ -118,26 +139,36 @@ function EmptyState() {
   )
 }
 
-export function ActiveLoans({ loans, onRepay }: { loans: Loan[]; onRepay: (id: number) => Promise<void> }) {
+export function ActiveLoans({
+  loans,
+  configuration,
+  onRepay,
+}: {
+  loans: Loan[]
+  configuration: BorrowConfiguration
+  onRepay: (id: number) => Promise<void>
+}) {
+  const activeLoans = loans.filter((loan) => loan.status === "ACTIVE")
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-baseline justify-between">
         <h2 className="text-lg font-bold" style={{ color: "var(--hw-text)" }}>
           Your Active Loans
         </h2>
-        {loans.length > 0 ? (
+        {activeLoans.length > 0 ? (
           <span className="text-sm tabular-nums" style={{ color: "var(--hw-muted)" }}>
-            {loans.length} open
+            {activeLoans.length} open
           </span>
         ) : null}
       </div>
 
-      {loans.length === 0 ? (
+      {activeLoans.length === 0 ? (
         <EmptyState />
       ) : (
         <div className="flex flex-col gap-4">
-          {loans.map((loan) => (
-            <LoanCard key={loan.id} loan={loan} onRepay={onRepay} />
+          {activeLoans.map((loan) => (
+            <LoanCard key={loan.id} loan={loan} configuration={configuration} onRepay={onRepay} />
           ))}
         </div>
       )}

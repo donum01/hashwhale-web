@@ -17,11 +17,17 @@ function statusColor(status: WalletTransaction["status"]): string {
   return "var(--hw-error)"
 }
 
-export function TransactionHistory({ transactions }: { transactions: WalletTransaction[] }) {
+export function TransactionHistory({
+  transactions,
+  title = "Recent Activity",
+}: {
+  transactions: WalletTransaction[]
+  title?: string
+}) {
   return (
     <div className="hw-card p-5">
       <h2 className="mb-4 text-lg font-bold" style={{ color: "var(--hw-text)" }}>
-        Recent Activity
+        {title}
       </h2>
 
       {transactions.length === 0 ? (

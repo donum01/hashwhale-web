@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
 import { AuthCard } from "@/components/hashwhale/auth-card"
+import { useTheme } from "@/components/hashwhale/theme-provider"
 import { ThemeToggle } from "@/components/hashwhale/theme-toggle"
 
 export default function Page() {
-  const [theme, setTheme] = useState<"light" | "dark">("light")
+  const { theme, toggleTheme } = useTheme()
 
   return (
     <main
@@ -20,7 +20,7 @@ export default function Page() {
 
       {/* Theme toggle */}
       <div className="absolute right-4 top-4 sm:right-6 sm:top-6">
-        <ThemeToggle theme={theme} onToggle={() => setTheme((t) => (t === "light" ? "dark" : "light"))} />
+        <ThemeToggle theme={theme} onToggle={toggleTheme} />
       </div>
 
       <AuthCard />

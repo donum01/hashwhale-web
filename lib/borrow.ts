@@ -7,12 +7,27 @@
 =========================================================================== */
 
 export type AssetSymbol = "BTC" | "ETH" | "USDT"
+export type CollateralAssetSymbol = "BTC" | "ETH"
+export type LoanStatus = "ACTIVE" | "REPAID" | "LIQUIDATED"
+export type PriceSource = "COINGECKO" | "STATIC" | "STATIC_FALLBACK"
+export type AssetPricesUsd = Record<AssetSymbol, number>
+export const PRICE_CONFIGURATION_POLL_MS = 15_000
 
 export interface AssetConfig {
   symbol: AssetSymbol
   name: string
-  price: number
   color: string
+}
+
+export interface BorrowConfiguration {
+  usdPrices: AssetPricesUsd
+  priceSource: PriceSource
+  pricesUpdatedAt: string | null
+  pricesStale: boolean
+  interestRateApr: number
+  maxLtvPercent: number
+  warningLtvPercent: number
+  liquidationLtvPercent: number
 }
 
 export interface Loan {
@@ -20,39 +35,28 @@ export interface Loan {
   asset: AssetSymbol
   collateralAmount: number
   borrowedUsdt: number
+  interestRateApr: number
+  status: LoanStatus
+  createdAt: string
 }
-
-/* --- Static protocol parameters ------------------------------------------ */
-
-/** HashWhale's real minimum loan rate. */
-export const INTEREST_RATE_APR = 2.88
-
-/** Max LTV a new loan may be opened at. */
-export const MAX_LTV = 70
-
-/** LTV at which a position is liquidated (used for liquidation price). */
-export const LIQUIDATION_LTV = 85
-
-/** LTV tier thresholds. */
-export const LTV_WARN_THRESHOLD = 50
-export const LTV_DANGER_THRESHOLD = 70
 
 /* --- Collateral assets ---------------------------------------------------- */
 
 export const ASSETS: Record<AssetSymbol, AssetConfig> = {
-  BTC: { symbol: "BTC", name: "Bitcoin", price: 64000, color: "#f7931a" },
-  ETH: { symbol: "ETH", name: "Ethereum", price: 3400, color: "#627eea" },
-  USDT: { symbol: "USDT", name: "Tether", price: 1, color: "#26a17b" },
+  BTC: { symbol: "BTC", name: "Bitcoin", color: "#f7931a" },
+  ETH: { symbol: "ETH", name: "Ethereum", color: "#627eea" },
+  USDT: { symbol: "USDT", name: "Tether", color: "#26a17b" },
 }
 
 export const ASSET_LIST: AssetConfig[] = [ASSETS.BTC, ASSETS.ETH, ASSETS.USDT]
+export const COLLATERAL_ASSET_LIST: AssetConfig[] = [ASSETS.BTC, ASSETS.ETH]
 
 /* --- Derived helpers ------------------------------------------------------ */
 
 export type LtvTier = "safe" | "warn" | "danger"
 
-export function collateralValueUsd(asset: AssetSymbol, amount: number): number {
-  return amount * ASSETS[asset].price
+export function collateralValueUsd(asset: AssetSymbol, amount: number, prices: AssetPricesUsd): number {
+  return amount * prices[asset]
 }
 
 /** LTV as a percentage (0–100+). Returns 0 when there's no collateral value. */
@@ -61,19 +65,24 @@ export function computeLtv(collateralValue: number, borrowedUsdt: number): numbe
   return (borrowedUsdt / collateralValue) * 100
 }
 
-export function loanLtv(loan: Loan): number {
-  return computeLtv(collateralValueUsd(loan.asset, loan.collateralAmount), loan.borrowedUsdt)
+export function loanLtv(loan: Loan, configuration: BorrowConfiguration): number {
+  const borrowedValueUsd = loan.borrowedUsdt * configuration.usdPrices.USDT
+  return computeLtv(
+    collateralValueUsd(loan.asset, loan.collateralAmount, configuration.usdPrices),
+    borrowedValueUsd,
+  )
 }
 
 /** Price of the collateral asset at which this position gets liquidated. */
-export function liquidationPrice(loan: Loan): number {
+export function liquidationPrice(loan: Loan, configuration: BorrowConfiguration): number {
   if (loan.collateralAmount <= 0) return 0
-  return loan.borrowedUsdt / (loan.collateralAmount * (LIQUIDATION_LTV / 100))
+  const borrowedValueUsd = loan.borrowedUsdt * configuration.usdPrices.USDT
+  return borrowedValueUsd / (loan.collateralAmount * (configuration.liquidationLtvPercent / 100))
 }
 
-export function ltvTier(ltv: number): LtvTier {
-  if (ltv > LTV_DANGER_THRESHOLD) return "danger"
-  if (ltv >= LTV_WARN_THRESHOLD) return "warn"
+export function ltvTier(ltv: number, configuration: BorrowConfiguration): LtvTier {
+  if (ltv > configuration.maxLtvPercent) return "danger"
+  if (ltv >= configuration.warningLtvPercent) return "warn"
   return "safe"
 }
 
@@ -94,10 +103,16 @@ export const currencyUsdPrecise = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 })
 
+export const loanDateTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeStyle: "short",
+})
+
 import type { components } from "./api-schema"
 
 type ApiLoan = components["schemas"]["LoanResponse"]
 type ApiWalletBalance = components["schemas"]["WalletBalanceResponse"]
+type ApiBorrowConfiguration = components["schemas"]["BorrowConfigurationResponse"]
 
 
 export function apiLoanToLoan(apiLoan: ApiLoan): Loan {
@@ -106,6 +121,29 @@ export function apiLoanToLoan(apiLoan: ApiLoan): Loan {
     asset: apiLoan.collateralAsset as AssetSymbol,
     collateralAmount: Number(apiLoan.collateralAmount),
     borrowedUsdt: Number(apiLoan.borrowedAmount),
+    interestRateApr: Number(apiLoan.interestRateApr),
+    status: apiLoan.status as LoanStatus,
+    createdAt: apiLoan.createdAt!,
+  }
+}
+
+export function apiBorrowConfigurationToBorrowConfiguration(
+  apiConfiguration: ApiBorrowConfiguration,
+): BorrowConfiguration {
+  const prices = apiConfiguration.usdPrices ?? {}
+  return {
+    usdPrices: {
+      BTC: Number(prices.BTC),
+      ETH: Number(prices.ETH),
+      USDT: Number(prices.USDT),
+    },
+    priceSource: (apiConfiguration.priceSource ?? "STATIC_FALLBACK") as PriceSource,
+    pricesUpdatedAt: apiConfiguration.pricesUpdatedAt ?? null,
+    pricesStale: apiConfiguration.pricesStale ?? true,
+    interestRateApr: Number(apiConfiguration.interestRateApr),
+    maxLtvPercent: Number(apiConfiguration.maxLtvPercent),
+    warningLtvPercent: Number(apiConfiguration.warningLtvPercent),
+    liquidationLtvPercent: Number(apiConfiguration.liquidationLtvPercent),
   }
 }
 

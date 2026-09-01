@@ -3,7 +3,7 @@
 =========================================================================== */
 
 import type { components } from "./api-schema"
-import { ASSETS, type AssetSymbol } from "./borrow"
+import { type AssetPricesUsd, type AssetSymbol } from "./borrow"
 import { ASSET_LIST } from "./borrow"
 
 
@@ -52,12 +52,12 @@ export function apiTransactionToTransaction(apiTx: ApiTransaction): WalletTransa
   }
 }
 
-export function balanceValueUsd(balance: WalletBalance): number {
-  return (balance.availableAmount + balance.lockedAmount) * ASSETS[balance.asset].price
+export function balanceValueUsd(balance: WalletBalance, prices: AssetPricesUsd): number {
+  return (balance.availableAmount + balance.lockedAmount) * prices[balance.asset]
 }
 
-export function totalPortfolioValue(balances: WalletBalance[]): number {
-  return balances.reduce((sum, b) => sum + balanceValueUsd(b), 0)
+export function totalPortfolioValue(balances: WalletBalance[], prices: AssetPricesUsd): number {
+  return balances.reduce((sum, balance) => sum + balanceValueUsd(balance, prices), 0)
 }
 
 /** Ensures every known asset has a balance entry, even if the user has 
@@ -70,8 +70,8 @@ export function withAllAssets(balances: WalletBalance[]): WalletBalance[] {
 }
 
 export const TRANSACTION_LABELS: Record<TransactionType, string> = {
-  DEPOSIT: "Deposit",
-  WITHDRAW: "Withdraw",
+  DEPOSIT: "Simulated deposit",
+  WITHDRAW: "Simulated withdrawal",
   BORROW: "Borrow",
   REPAY: "Repay",
   EARN_SUBSCRIBE: "Earn Subscribe",

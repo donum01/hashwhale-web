@@ -1,13 +1,13 @@
 "use client"
 
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { Field } from "./field"
 import { Wordmark } from "./wordmark"
 import { KycStatus, type KycState } from "./kyc-status"
 import { api } from "@/lib/api"
-import { setToken, setUserId } from "@/lib/auth"
+import { consumeAuthNotice, setToken, setUserId } from "@/lib/auth"
 
 type SubmitResult = { ok: true } | { ok: false; message: string }
 
@@ -41,12 +41,10 @@ async function handleSignup(values: {
   email: string
   password: string
   confirmPassword: string
-  country: string
+  countryCode: CountryCode
 }): Promise<SubmitResult> {
-  // Note: backend RegisterRequest currently only accepts email + password.
-  // `country` is collected for future use but not yet sent/persisted.
   const { error } = await api.POST("/api/auth/register", {
-    body: { email: values.email, password: values.password },
+    body: { email: values.email, password: values.password, countryCode: values.countryCode },
   })
 
   if (error) {
@@ -61,18 +59,21 @@ async function handleSignup(values: {
 }
 
 const COUNTRIES = [
-  "United States",
-  "United Kingdom",
-  "Canada",
-  "Germany",
-  "France",
-  "Netherlands",
-  "Singapore",
-  "Japan",
-  "Australia",
-  "United Arab Emirates",
-  "Switzerland",
-]
+  { code: "US", name: "United States" },
+  { code: "GB", name: "United Kingdom" },
+  { code: "CA", name: "Canada" },
+  { code: "DE", name: "Germany" },
+  { code: "FR", name: "France" },
+  { code: "NL", name: "Netherlands" },
+  { code: "SG", name: "Singapore" },
+  { code: "JP", name: "Japan" },
+  { code: "AU", name: "Australia" },
+  { code: "AE", name: "United Arab Emirates" },
+  { code: "CH", name: "Switzerland" },
+  { code: "PH", name: "Philippines" },
+] as const
+
+type CountryCode = (typeof COUNTRIES)[number]["code"]
 
 type Mode = "login" | "signup"
 
@@ -95,14 +96,22 @@ export function AuthCard() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [country, setCountry] = useState("")
+  const [countryCode, setCountryCode] = useState<CountryCode | "">("")
   const [errors, setErrors] = useState<FormErrors>({})
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [authNotice, setAuthNotice] = useState<string | null>(null)
 
   // KYC status is hidden by default — flip `show` on once wired to real data.
   const [kyc] = useState<KycState>("not_started")
 
   const loginTabRef = useRef<HTMLButtonElement>(null)
+  const authNoticeReadRef = useRef(false)
+
+  useEffect(() => {
+    if (authNoticeReadRef.current) return
+    authNoticeReadRef.current = true
+    setAuthNotice(consumeAuthNotice())
+  }, [])
 
   function switchMode(next: Mode) {
     if (next === mode) return
@@ -123,7 +132,7 @@ export function AuthCard() {
     if (mode === "signup") {
       if (!confirmPassword) next.confirmPassword = "Please confirm your password"
       else if (confirmPassword !== password) next.confirmPassword = "Passwords do not match"
-      if (!country) next.country = "Please select your country"
+      if (!countryCode) next.country = "Please select your country"
     }
     return next
   }
@@ -136,11 +145,12 @@ export function AuthCard() {
 
     setStatus("loading")
     setSuccessMessage(null)
+    setAuthNotice(null)
 
     const result =
       mode === "login"
         ? await handleLogin({ email, password })
-        : await handleSignup({ email, password, confirmPassword, country })
+        : await handleSignup({ email, password, confirmPassword, countryCode: countryCode as CountryCode })
 
     if (result.ok) {
       if (mode === "signup") {
@@ -154,7 +164,7 @@ export function AuthCard() {
       } else {
         // Login succeeded — go into the app
         setStatus("success")
-        router.push("/borrow")
+        router.push("/dashboard")
       }
     } else {
       setStatus("idle")
@@ -214,6 +224,20 @@ export function AuthCard() {
           role="status"
         >
           {successMessage}
+        </div>
+      ) : null}
+
+      {authNotice ? (
+        <div
+          className="hw-fade-slide mb-4 rounded-lg px-3 py-2.5 text-sm font-medium"
+          style={{
+            color: "var(--hw-error)",
+            background: "rgba(255, 100, 13, 0.1)",
+            border: "1px solid rgba(255, 100, 13, 0.3)",
+          }}
+          role="alert"
+        >
+          {authNotice}
         </div>
       ) : null}
 
@@ -294,20 +318,20 @@ export function AuthCard() {
             <Field id="country" label="Country" error={errors.country}>
               <select
                 id="country"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value as CountryCode)}
                 tabIndex={mode === "signup" ? 0 : -1}
                 className={`hw-input h-11 w-full appearance-none px-3.5 text-sm ${
                   errors.country ? "hw-input-error" : ""
                 }`}
-                style={{ color: country ? "var(--hw-text)" : "var(--hw-muted)" }}
+                style={{ color: countryCode ? "var(--hw-text)" : "var(--hw-muted)" }}
               >
                 <option value="" disabled>
                   Select your country
                 </option>
-                {COUNTRIES.map((c) => (
-                  <option key={c} value={c} style={{ color: "#0a0e1a" }}>
-                    {c}
+                {COUNTRIES.map((country) => (
+                  <option key={country.code} value={country.code} style={{ color: "#0a0e1a" }}>
+                    {country.name}
                   </option>
                 ))}
               </select>

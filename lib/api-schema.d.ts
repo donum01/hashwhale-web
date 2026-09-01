@@ -13,7 +13,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Withdraw an available asset from a user's wallet */
+        /**
+         * Simulate a wallet withdrawal
+         * @description Updates the internal demo ledger only; no blockchain transaction or real asset transfer occurs.
+         */
         post: operations["withdraw"];
         delete?: never;
         options?: never;
@@ -30,8 +33,52 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Deposit an asset into a user's wallet */
+        /**
+         * Simulate a wallet deposit
+         * @description Updates the internal demo ledger only; no blockchain transaction or real asset transfer occurs.
+         */
         post: operations["deposit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/earn/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the authenticated user's simulated Earn positions */
+        get: operations["getPositions"];
+        put?: never;
+        /**
+         * Subscribe to a simulated Earn product
+         * @description Moves funds from available to locked balance in the demo ledger; no real assets move.
+         */
+        post: operations["subscribe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/earn/positions/{positionId}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw a simulated Earn position
+         * @description Flexible positions can be withdrawn immediately; locked positions must reach maturity.
+         */
+        post: operations["withdraw_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -70,7 +117,7 @@ export interface paths {
         put?: never;
         /**
          * Repay a loan
-         * @description Marks an active loan as repaid and unlocks its collateral.
+         * @description Deducts the borrowed principal, marks the loan as repaid, and unlocks its collateral.
          */
         post: operations["repayLoan"];
         delete?: never;
@@ -150,6 +197,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/market/prices/{asset}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get historical prices
+         * @description BTC and ETH default to USD. USDT defaults to the authenticated user's country-derived fiat currency.
+         */
+        get: operations["getPriceHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/earn/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the authenticated user's simulated Earn summary */
+        get: operations["getSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/earn/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List available simulated Earn products */
+        get: operations["getProducts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dashboard/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get dashboard summary
+         * @description Aggregates Wallet, Borrow, Earn, market-status, alerts, and recent activity for the authenticated user.
+         */
+        get: operations["getSummary_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/borrow/configuration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get borrow configuration
+         * @description Returns the prices and risk parameters currently used by the borrow engine.
+         */
+        get: operations["getConfiguration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/me": {
         parameters: {
             query?: never;
@@ -178,7 +319,7 @@ export interface components {
              * @example USDT
              * @enum {string}
              */
-            asset: "BTC" | "ETH" | "USDT" | "USDC";
+            asset: "BTC" | "ETH" | "USDT";
             /**
              * @description Positive asset amount
              * @example 250
@@ -191,7 +332,7 @@ export interface components {
              * @example BTC
              * @enum {string}
              */
-            asset?: "BTC" | "ETH" | "USDT" | "USDC";
+            asset?: "BTC" | "ETH" | "USDT";
             /** @example 0.75 */
             availableAmount?: number;
             /** @example 0.25 */
@@ -216,6 +357,63 @@ export interface components {
             /** @example /api/borrow/1/loans */
             path?: string;
         };
+        /** @description Simulated Earn subscription */
+        EarnSubscribeRequest: {
+            /** @example USDT_LOCKED_90 */
+            productId: string;
+            /** @example 1000 */
+            amount: number;
+        };
+        /** @description A user's simulated Earn position */
+        EarnPositionResponse: {
+            /**
+             * Format: int64
+             * @example 42
+             */
+            id?: number;
+            /**
+             * @example USDT
+             * @enum {string}
+             */
+            asset?: "BTC" | "ETH" | "USDT";
+            /** @example 1000 */
+            principalAmount?: number;
+            /**
+             * @description APY snapshot captured at subscription
+             * @example 6
+             */
+            apy?: number;
+            /**
+             * @example LOCKED_90
+             * @enum {string}
+             */
+            termType?: "FLEXIBLE" | "LOCKED_30" | "LOCKED_90";
+            /**
+             * Format: date
+             * @example 2026-08-31
+             */
+            startDate?: string;
+            /**
+             * Format: date
+             * @example 2026-11-29
+             */
+            endDate?: string | null;
+            /**
+             * @example ACTIVE
+             * @enum {string}
+             */
+            status?: "ACTIVE" | "WITHDRAWN";
+            /** @example 4.109589041095891 */
+            accruedRewards?: number;
+            /** @example 14.794520547945206 */
+            estimatedRewardsAtMaturity?: number | null;
+            withdrawable?: boolean;
+            /**
+             * Format: int64
+             * @example 75
+             */
+            daysRemaining?: number | null;
+        };
         /** @description Parameters for creating a collateralized USDT loan */
         CreateLoanRequest: {
             /**
@@ -223,7 +421,7 @@ export interface components {
              * @example BTC
              * @enum {string}
              */
-            collateralAsset: "BTC" | "ETH" | "USDT" | "USDC";
+            collateralAsset: "BTC" | "ETH";
             /**
              * @description Amount of collateral to lock
              * @example 0.5
@@ -246,7 +444,7 @@ export interface components {
              * @example BTC
              * @enum {string}
              */
-            collateralAsset?: "BTC" | "ETH" | "USDT" | "USDC";
+            collateralAsset?: "BTC" | "ETH" | "USDT";
             /** @example 0.5 */
             collateralAmount?: number;
             /** @example 15000 */
@@ -255,7 +453,7 @@ export interface components {
              * @example USDT
              * @enum {string}
              */
-            borrowedAsset?: "BTC" | "ETH" | "USDT" | "USDC";
+            borrowedAsset?: "BTC" | "ETH" | "USDT";
             /**
              * @description Annual percentage rate
              * @example 0
@@ -281,6 +479,12 @@ export interface components {
             email: string;
             /** @example correct-horse-battery-staple */
             password: string;
+            /**
+             * @description ISO 3166-1 alpha-2 country code
+             * @example PH
+             * @enum {string}
+             */
+            countryCode: "US" | "GB" | "CA" | "DE" | "FR" | "NL" | "SG" | "JP" | "AU" | "AE" | "CH" | "PH";
         };
         /** @description Login credentials */
         LoginRequest: {
@@ -311,7 +515,7 @@ export interface components {
              * @example USDT
              * @enum {string}
              */
-            asset?: "BTC" | "ETH" | "USDT" | "USDC";
+            asset?: "BTC" | "ETH" | "USDT";
             /** @example 250 */
             amount?: number;
             /**
@@ -324,6 +528,203 @@ export interface components {
              * @example 2026-08-31T07:30:00Z
              */
             createdAt?: string;
+        };
+        /** @description Historical market prices and derived period statistics */
+        MarketPriceHistoryResponse: {
+            /**
+             * @example BTC
+             * @enum {string}
+             */
+            asset?: "BTC" | "ETH" | "USDT";
+            /**
+             * @example USD
+             * @enum {string}
+             */
+            quoteCurrency?: "USD" | "GBP" | "CAD" | "EUR" | "SGD" | "JPY" | "AUD" | "AED" | "CHF" | "PHP";
+            /**
+             * @example 7D
+             * @enum {string}
+             */
+            range?: "1D" | "7D" | "30D" | "90D";
+            /** @example 60250.42 */
+            currentPrice?: number;
+            /** @example 1250.42 */
+            changeAmount?: number;
+            /** @example 2.12 */
+            changePercent?: number;
+            /** @example 58010.11 */
+            minimumPrice?: number;
+            /** @example 61120.05 */
+            maximumPrice?: number;
+            /** @enum {string} */
+            source?: "COINGECKO" | "STATIC" | "STATIC_FALLBACK";
+            /** Format: date-time */
+            updatedAt?: string;
+            stale?: boolean;
+            points?: components["schemas"]["MarketPricePointResponse"][];
+        };
+        /** @description One timestamped market-price observation */
+        MarketPricePointResponse: {
+            /**
+             * Format: date-time
+             * @example 2026-08-31T12:00:00Z
+             */
+            timestamp?: string;
+            /** @example 60250.42 */
+            price?: number;
+        };
+        /** @description USD-denominated summary of active simulated Earn positions */
+        EarnSummaryResponse: {
+            /** @example 1500 */
+            totalPrincipalUsd?: number;
+            /** @example 8.42 */
+            accruedRewardsUsd?: number;
+            /** @example 4.75 */
+            weightedAverageApy?: number;
+            /**
+             * Format: int64
+             * @example 2
+             */
+            activePositions?: number;
+            /**
+             * Format: date
+             * @example 2026-11-29
+             */
+            nextMaturityDate?: string | null;
+        };
+        /** @description A server-controlled simulated Earn product */
+        EarnProductResponse: {
+            /** @example USDT_LOCKED_90 */
+            id?: string;
+            /**
+             * @example USDT
+             * @enum {string}
+             */
+            asset?: "BTC" | "ETH" | "USDT";
+            /**
+             * @example LOCKED_90
+             * @enum {string}
+             */
+            termType?: "FLEXIBLE" | "LOCKED_30" | "LOCKED_90";
+            /**
+             * @description Annual percentage yield
+             * @example 6
+             */
+            apy?: number;
+            /**
+             * Format: int32
+             * @example 90
+             */
+            termDays?: number;
+            /** @example 10 */
+            minimumAmount?: number;
+            flexible?: boolean;
+            active?: boolean;
+        };
+        /** @description Actionable account alert */
+        DashboardAlertResponse: {
+            /** @enum {string} */
+            severity?: "INFO" | "WARNING" | "CRITICAL";
+            /** @example Loan LTV needs attention */
+            title?: string;
+            /** @example Your highest active-loan LTV is 66.2%. */
+            message?: string;
+            /** @example /borrow */
+            href?: string | null;
+            /** @example Review loans */
+            actionLabel?: string | null;
+        };
+        /** @description One deterministic, non-advisory next action */
+        DashboardRecommendationResponse: {
+            /** @example Put an idle balance to work */
+            title?: string;
+            message?: string;
+            /** @example /earn */
+            href?: string;
+            /** @example Explore Earn */
+            actionLabel?: string;
+        };
+        /** @description Authenticated user's cross-product dashboard summary */
+        DashboardSummaryResponse: {
+            email?: string;
+            /** @enum {string} */
+            kycStatus?: "NOT_STARTED" | "PENDING" | "VERIFIED";
+            /** @enum {string} */
+            preferredFiatCurrency?: "USD" | "GBP" | "CAD" | "EUR" | "SGD" | "JPY" | "AUD" | "AED" | "CHF" | "PHP";
+            netAccountValueUsd?: number;
+            totalAssetsUsd?: number;
+            /** @description Outstanding active-loan principal in USD */
+            totalDebtUsd?: number;
+            availableUsd?: number;
+            earnPrincipalUsd?: number;
+            collateralUsd?: number;
+            accruedEarnRewardsUsd?: number;
+            /** Format: int64 */
+            activeLoanCount?: number;
+            highestLtvPercent?: number;
+            /** @enum {string} */
+            borrowHealth?: "NONE" | "HEALTHY" | "WARNING" | "AT_RISK";
+            /** Format: int64 */
+            activeEarnPositionCount?: number;
+            weightedAverageEarnApy?: number;
+            /** Format: date */
+            nextEarnMaturityDate?: string;
+            /** @enum {string} */
+            priceSource?: "COINGECKO" | "STATIC" | "STATIC_FALLBACK";
+            /** Format: date-time */
+            pricesUpdatedAt?: string;
+            pricesStale?: boolean;
+            alerts?: components["schemas"]["DashboardAlertResponse"][];
+            recommendation?: components["schemas"]["DashboardRecommendationResponse"];
+            recentTransactions?: components["schemas"]["TransactionResponse"][];
+        };
+        /** @description Effective prices and risk parameters used by the borrow engine */
+        BorrowConfigurationResponse: {
+            /**
+             * @description Current USD price keyed by asset symbol
+             * @example {
+             *       "BTC": 60000,
+             *       "ETH": 3000,
+             *       "USDT": 1
+             *     }
+             */
+            usdPrices?: {
+                [key: string]: number;
+            };
+            /**
+             * @description Provider currently supplying the returned prices
+             * @example COINGECKO
+             * @enum {string}
+             */
+            priceSource?: "COINGECKO" | "STATIC" | "STATIC_FALLBACK";
+            /**
+             * Format: date-time
+             * @description Oldest provider update timestamp for the returned live prices
+             * @example 2026-08-31T12:00:00Z
+             */
+            pricesUpdatedAt?: string | null;
+            /** @description Whether live prices are unavailable or older than the configured threshold */
+            pricesStale?: boolean;
+            /**
+             * @description APR applied to newly created loans
+             * @example 2.88
+             */
+            interestRateApr?: number;
+            /**
+             * @description Maximum permitted origination LTV percentage
+             * @example 70
+             */
+            maxLtvPercent?: number;
+            /**
+             * @description LTV percentage at which the UI begins warning the user
+             * @example 50
+             */
+            warningLtvPercent?: number;
+            /**
+             * @description LTV percentage used for liquidation-price estimates
+             * @example 85
+             */
+            liquidationLtvPercent?: number;
         };
         /** @description Authenticated user profile */
         UserResponse: {
@@ -339,6 +740,16 @@ export interface components {
              * @enum {string}
              */
             kycStatus?: "NOT_STARTED" | "PENDING" | "VERIFIED";
+            /**
+             * @example PH
+             * @enum {string}
+             */
+            countryCode?: "US" | "GB" | "CA" | "DE" | "FR" | "NL" | "SG" | "JP" | "AU" | "AE" | "CH" | "PH";
+            /**
+             * @example PHP
+             * @enum {string}
+             */
+            preferredFiatCurrency?: "USD" | "GBP" | "CAD" | "EUR" | "SGD" | "JPY" | "AUD" | "AED" | "CHF" | "PHP";
             /**
              * Format: date-time
              * @example 2026-08-30T12:00:00Z
@@ -369,7 +780,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Withdrawal completed and balance updated */
+            /** @description Simulated withdrawal completed and demo balance updated */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -422,7 +833,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Deposit completed and balance updated */
+            /** @description Simulated deposit completed and demo balance updated */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -456,6 +867,144 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["WalletBalanceResponse"];
+                };
+            };
+        };
+    };
+    getPositions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Positions returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EarnPositionResponse"][];
+                };
+            };
+            /** @description Missing, invalid, or expired JWT */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EarnPositionResponse"][];
+                };
+            };
+        };
+    };
+    subscribe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EarnSubscribeRequest"];
+            };
+        };
+        responses: {
+            /** @description Earn position created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EarnPositionResponse"];
+                };
+            };
+            /** @description Invalid product, amount, or insufficient available balance */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid, or expired JWT */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EarnPositionResponse"];
+                };
+            };
+            /** @description Product is unavailable */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EarnPositionResponse"];
+                };
+            };
+        };
+    };
+    withdraw_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                positionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Principal and accrued simulated rewards returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EarnPositionResponse"];
+                };
+            };
+            /** @description Position does not exist */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EarnPositionResponse"];
+                };
+            };
+            /** @description Missing, invalid, or expired JWT */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EarnPositionResponse"];
+                };
+            };
+            /** @description Authenticated user does not own the position */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EarnPositionResponse"];
+                };
+            };
+            /** @description Position is not active or has not matured */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EarnPositionResponse"];
                 };
             };
         };
@@ -564,7 +1113,7 @@ export interface operations {
                     "*/*": components["schemas"]["LoanResponse"];
                 };
             };
-            /** @description Invalid loan id or loan not found */
+            /** @description Invalid loan, loan not found, or insufficient repayment balance */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -760,6 +1309,174 @@ export interface operations {
             };
             /** @description Authenticated user does not own the requested wallet */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getPriceHistory: {
+        parameters: {
+            query?: {
+                range?: string;
+                currency?: "USD" | "GBP" | "CAD" | "EUR" | "SGD" | "JPY" | "AUD" | "AED" | "CHF" | "PHP";
+            };
+            header?: never;
+            path: {
+                asset: "BTC" | "ETH" | "USDT";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Historical prices returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MarketPriceHistoryResponse"];
+                };
+            };
+            /** @description Unsupported asset, range, or quote currency */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid, or expired JWT */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MarketPriceHistoryResponse"];
+                };
+            };
+            /** @description No live or cached history is currently available */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Summary returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EarnSummaryResponse"];
+                };
+            };
+            /** @description Missing, invalid, or expired JWT */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EarnSummaryResponse"];
+                };
+            };
+        };
+    };
+    getProducts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Products returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EarnProductResponse"][];
+                };
+            };
+            /** @description Missing, invalid, or expired JWT */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EarnProductResponse"][];
+                };
+            };
+        };
+    };
+    getSummary_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dashboard summary returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DashboardSummaryResponse"];
+                };
+            };
+            /** @description Missing, invalid, or expired JWT */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getConfiguration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Configuration returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BorrowConfigurationResponse"];
+                };
+            };
+            /** @description Missing, invalid, or expired JWT */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -3,14 +3,12 @@
 import { useMemo, useState } from "react"
 import { Loader2 } from "lucide-react"
 import {
-  ASSET_LIST,
-  ASSETS,
-  INTEREST_RATE_APR,
-  MAX_LTV,
+  COLLATERAL_ASSET_LIST,
   collateralValueUsd,
   computeLtv,
   currencyUsd,
-  type AssetSymbol,
+  type BorrowConfiguration,
+  type CollateralAssetSymbol,
   type WalletBalance,
 } from "@/lib/borrow"
 import { AssetChip } from "./asset-chip"
@@ -21,11 +19,17 @@ type BorrowResult = { ok: true } | { ok: false; message: string }
 export function BorrowForm({
   onBorrow,
   balances,
+  configuration,
 }: {
-  onBorrow: (params: { asset: AssetSymbol; collateralAmount: number; borrowedAmount: number }) => Promise<BorrowResult>
+  onBorrow: (params: {
+    asset: CollateralAssetSymbol
+    collateralAmount: number
+    borrowedAmount: number
+  }) => Promise<BorrowResult>
   balances: WalletBalance[]
+  configuration: BorrowConfiguration
 }) {
-  const [asset, setAsset] = useState<AssetSymbol>("BTC")
+  const [asset, setAsset] = useState<CollateralAssetSymbol>("BTC")
   const [collateral, setCollateral] = useState("")
   const [borrow, setBorrow] = useState("")
   const [status, setStatus] = useState<"idle" | "loading">("idle")
@@ -34,14 +38,23 @@ export function BorrowForm({
   const collateralNum = Number.parseFloat(collateral) || 0
   const borrowNum = Number.parseFloat(borrow) || 0
 
-  const collateralValue = collateralValueUsd(asset, collateralNum)
-  const ltv = useMemo(() => computeLtv(collateralValue, borrowNum), [collateralValue, borrowNum])
+  const collateralValue = collateralValueUsd(asset, collateralNum, configuration.usdPrices)
+  const borrowedValueUsd = borrowNum * configuration.usdPrices.USDT
+  const ltv = useMemo(
+    () => computeLtv(collateralValue, borrowedValueUsd),
+    [borrowedValueUsd, collateralValue],
+  )
 
   const currentBalance = balances.find((b) => b.asset === asset)?.availableAmount ?? 0
 
   const overMax = collateralNum > currentBalance
   const valid =
-    collateralNum > 0 && borrowNum > 0 && !overMax && ltv > 0 && ltv <= MAX_LTV && status === "idle"
+    collateralNum > 0
+    && borrowNum > 0
+    && !overMax
+    && ltv > 0
+    && ltv <= configuration.maxLtvPercent
+    && status === "idle"
 
   function fillMax() {
     setCollateral(String(currentBalance))
@@ -100,10 +113,10 @@ export function BorrowForm({
             <select
               id="asset"
               value={asset}
-              onChange={(e) => setAsset(e.target.value as AssetSymbol)}
+              onChange={(e) => setAsset(e.target.value as CollateralAssetSymbol)}
               className="hw-input h-11 w-full appearance-none pl-3.5 pr-11 text-sm font-medium"
             >
-              {ASSET_LIST.map((a) => (
+              {COLLATERAL_ASSET_LIST.map((a) => (
                 <option key={a.symbol} value={a.symbol} style={{ color: "#0a0e1a" }}>
                   {a.symbol} — {a.name}
                 </option>
@@ -192,10 +205,10 @@ export function BorrowForm({
           className="rounded-lg p-4"
           style={{ background: "var(--hw-track)", border: "1px solid var(--hw-input-border)" }}
         >
-          <LtvBar ltv={ltv} />
-          {ltv > MAX_LTV ? (
+          <LtvBar ltv={ltv} configuration={configuration} />
+          {ltv > configuration.maxLtvPercent ? (
             <p className="hw-fade-slide mt-3 text-xs font-medium" style={{ color: "var(--hw-error)" }}>
-              LTV exceeds the {MAX_LTV}% maximum. Reduce the borrow amount or add collateral.
+              LTV exceeds the {configuration.maxLtvPercent}% maximum. Reduce the borrow amount or add collateral.
             </p>
           ) : null}
         </div>
@@ -206,7 +219,7 @@ export function BorrowForm({
         >
           <span style={{ color: "var(--hw-muted)" }}>Interest rate</span>
           <span className="font-bold tabular-nums" style={{ color: "var(--hw-text)" }}>
-            {INTEREST_RATE_APR.toFixed(2)}% APR
+            {configuration.interestRateApr.toFixed(2)}% APR
           </span>
         </div>
 

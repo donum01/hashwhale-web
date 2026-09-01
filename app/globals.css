@@ -190,6 +190,7 @@
   --hw-ltv-safe: #0ea678;
   --hw-ltv-warn: #e0912b;
   --hw-ltv-danger: #ff640d;
+  --hw-nav-bg: rgba(244, 246, 251, 0.75);
 }
 
 .hw-dark {
@@ -209,6 +210,7 @@
   --hw-ltv-safe: #10d9a0;
   --hw-ltv-warn: #ffc24b;
   --hw-ltv-danger: #ff640d;
+  --hw-nav-bg: rgba(5, 7, 13, 0.7);
 }
 
 /* Card floating glass surface */
@@ -411,6 +413,49 @@
   animation: hw-toast-in 260ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
+/* Earn page details */
+@keyframes hw-earn-shine {
+  0% {
+    transform: translateX(-140%) skewX(-18deg);
+  }
+  60%,
+  100% {
+    transform: translateX(240%) skewX(-18deg);
+  }
+}
+.hw-earn-apy {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.hw-earn-apy::after {
+  position: absolute;
+  inset: -30% auto -30% 0;
+  width: 32%;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  animation: hw-earn-shine 4.8s ease-in-out infinite;
+  pointer-events: none;
+}
+.hw-earn-progress {
+  transition: width 650ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dashboard market-chart reveal */
+@keyframes hw-chart-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.hw-chart-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: hw-chart-draw 900ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hw-glow,
   .hw-card-in,
@@ -418,6 +463,14 @@
   .hw-warn-pulse,
   .hw-toast {
     animation: none;
+  }
+  .hw-earn-apy::after {
+    animation: none;
+  }
+  .hw-chart-line {
+    animation: none;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
   }
   .hw-ltv-fill {
     transition: none;

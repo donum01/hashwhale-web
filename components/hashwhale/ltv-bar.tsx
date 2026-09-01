@@ -1,7 +1,7 @@
-import { LTV_DANGER_THRESHOLD, ltvTier, ltvTierColorVar } from "@/lib/borrow"
+import { ltvTier, ltvTierColorVar, type BorrowConfiguration } from "@/lib/borrow"
 
-export function LtvBar({ ltv }: { ltv: number }) {
-  const tier = ltvTier(ltv)
+export function LtvBar({ ltv, configuration }: { ltv: number; configuration: BorrowConfiguration }) {
+  const tier = ltvTier(ltv, configuration)
   const color = ltvTierColorVar(tier)
   const isDanger = tier === "danger"
   const width = Math.min(Math.max(ltv, 0), 100)
@@ -36,7 +36,7 @@ export function LtvBar({ ltv }: { ltv: number }) {
 
       <div className="flex items-center justify-between text-xs" style={{ color: "var(--hw-muted)" }}>
         <span>Safe</span>
-        <span>Max {LTV_DANGER_THRESHOLD}%</span>
+        <span>Max {configuration.maxLtvPercent}%</span>
       </div>
     </div>
   )
