@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/api/wallet/{userId}/withdraw": {
+    "/api/wallet/withdraw": {
         parameters: {
             query?: never;
             header?: never;
@@ -24,7 +24,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/wallet/{userId}/deposit": {
+    "/api/wallet/deposit": {
         parameters: {
             query?: never;
             header?: never;
@@ -85,18 +85,18 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/borrow/{userId}/loans": {
+    "/api/borrow/loans": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List a user's loans */
+        /** List the authenticated user's loans */
         get: operations["getLoansForUser"];
         put?: never;
         /**
-         * Create a loan
+         * Create a loan for the authenticated user
          * @description Creates a USDT loan secured by the supplied collateral.
          */
         post: operations["createLoan"];
@@ -160,7 +160,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/wallet/{userId}/transactions": {
+    "/api/wallet/transactions": {
         parameters: {
             query?: never;
             header?: never;
@@ -168,7 +168,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List a user's transactions
+         * List the authenticated user's transactions
          * @description Returns newest transactions first.
          */
         get: operations["getTransactions"];
@@ -180,14 +180,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/wallet/{userId}/balances": {
+    "/api/wallet/balances": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List a user's wallet balances */
+        /** List the authenticated user's wallet balances */
         get: operations["getBalances"];
         put?: never;
         post?: never;
@@ -354,7 +354,7 @@ export interface components {
             error?: string;
             /** @example Insufficient available collateral balance */
             message?: string;
-            /** @example /api/borrow/1/loans */
+            /** @example /api/borrow/loans */
             path?: string;
         };
         /** @description Simulated Earn subscription */
@@ -769,9 +769,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                userId: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody: {
@@ -807,24 +805,13 @@ export interface operations {
                     "*/*": components["schemas"]["WalletBalanceResponse"];
                 };
             };
-            /** @description Authenticated user does not own this wallet */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["WalletBalanceResponse"];
-                };
-            };
         };
     };
     deposit: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                userId: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody: {
@@ -842,7 +829,7 @@ export interface operations {
                     "*/*": components["schemas"]["WalletBalanceResponse"];
                 };
             };
-            /** @description Invalid user, asset, or amount */
+            /** @description Invalid asset or amount */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -853,15 +840,6 @@ export interface operations {
             };
             /** @description Missing, invalid, or expired JWT */
             401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["WalletBalanceResponse"];
-                };
-            };
-            /** @description Authenticated user does not own this wallet */
-            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1013,9 +991,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                userId: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -1029,22 +1005,13 @@ export interface operations {
                     "*/*": components["schemas"]["LoanResponse"][];
                 };
             };
-            /** @description Invalid user id or user not found */
-            400: {
+            /** @description Missing, invalid, or expired JWT */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-            /** @description Authenticated user does not own the requested account */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiErrorResponse"];
+                    "*/*": components["schemas"]["LoanResponse"][];
                 };
             };
         };
@@ -1053,9 +1020,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                userId: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody: {
@@ -1082,13 +1047,13 @@ export interface operations {
                     "*/*": components["schemas"]["ApiErrorResponse"];
                 };
             };
-            /** @description Authenticated user does not own the requested account */
-            403: {
+            /** @description Missing, invalid, or expired JWT */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiErrorResponse"];
+                    "*/*": components["schemas"]["LoanResponse"];
                 };
             };
         };
@@ -1224,9 +1189,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                userId: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -1240,26 +1203,8 @@ export interface operations {
                     "*/*": components["schemas"]["TransactionResponse"][];
                 };
             };
-            /** @description Invalid user id */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiErrorResponse"];
-                };
-            };
             /** @description Missing, invalid, or expired JWT */
             401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["TransactionResponse"][];
-                };
-            };
-            /** @description Authenticated user does not own this wallet */
-            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1273,9 +1218,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                userId: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -1289,26 +1232,8 @@ export interface operations {
                     "*/*": components["schemas"]["WalletBalanceResponse"][];
                 };
             };
-            /** @description Invalid user id */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiErrorResponse"];
-                };
-            };
             /** @description Missing, invalid, or expired JWT */
             401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-            /** @description Authenticated user does not own the requested wallet */
-            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1359,7 +1284,7 @@ export interface operations {
                     "*/*": components["schemas"]["MarketPriceHistoryResponse"];
                 };
             };
-            /** @description No live or cached history is currently available */
+            /** @description Insufficient locally stored history is currently available */
             503: {
                 headers: {
                     [name: string]: unknown;

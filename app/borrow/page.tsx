@@ -42,9 +42,7 @@ export default function BorrowPage() {
     if (!userId) return false
 
     try {
-      const { data, error } = await api.GET("/api/wallet/{userId}/balances", {
-        params: { path: { userId } },
-      })
+      const { data, error } = await api.GET("/api/wallet/balances")
       if (data) setBalances(data.map(apiBalanceToBalance))
       return !error
     } catch {
@@ -60,8 +58,8 @@ export default function BorrowPage() {
       }
 
       const [loansRes, balancesRes, configurationRes] = await Promise.all([
-        api.GET("/api/borrow/{userId}/loans", { params: { path: { userId } } }),
-        api.GET("/api/wallet/{userId}/balances", { params: { path: { userId } } }),
+        api.GET("/api/borrow/loans"),
+        api.GET("/api/wallet/balances"),
         api.GET("/api/borrow/configuration", { cache: "no-store" }),
       ])
 
@@ -116,8 +114,7 @@ export default function BorrowPage() {
       return { ok: false, message: "You must be logged in to borrow." }
     }
 
-    const { data, error } = await api.POST("/api/borrow/{userId}/loans", {
-      params: { path: { userId } },
+    const { data, error } = await api.POST("/api/borrow/loans", {
       body: {
         collateralAsset: params.asset,
         collateralAmount: params.collateralAmount,

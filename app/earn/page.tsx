@@ -70,8 +70,8 @@ export default function EarnPage() {
           api.GET("/api/earn/products", { cache: "no-store" }),
           api.GET("/api/earn/positions", { cache: "no-store" }),
           api.GET("/api/earn/summary", { cache: "no-store" }),
-          api.GET("/api/wallet/{userId}/balances", { params: { path: { userId } }, cache: "no-store" }),
-          api.GET("/api/wallet/{userId}/transactions", { params: { path: { userId } }, cache: "no-store" }),
+          api.GET("/api/wallet/balances", { cache: "no-store" }),
+          api.GET("/api/wallet/transactions", { cache: "no-store" }),
         ])
 
       const hasError = productsResponse.error

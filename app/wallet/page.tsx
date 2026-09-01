@@ -49,8 +49,8 @@ export default function WalletPage() {
       return
     }
     const [balancesRes, txRes, configurationRes] = await Promise.all([
-      api.GET("/api/wallet/{userId}/balances", { params: { path: { userId } } }),
-      api.GET("/api/wallet/{userId}/transactions", { params: { path: { userId } } }),
+      api.GET("/api/wallet/balances"),
+      api.GET("/api/wallet/transactions"),
       api.GET("/api/borrow/configuration", { cache: "no-store" }),
     ])
     if (balancesRes.data) setBalances(balancesRes.data.map(apiBalanceToBalance))
@@ -97,8 +97,7 @@ export default function WalletPage() {
 
   async function handleDeposit(asset: AssetSymbol, amount: number) {
     if (!userId) return { ok: false as const, message: "You must be logged in." }
-    const { error } = await api.POST("/api/wallet/{userId}/deposit", {
-      params: { path: { userId } },
+    const { error } = await api.POST("/api/wallet/deposit", {
       body: { asset, amount },
     })
     if (error) {
@@ -112,8 +111,7 @@ export default function WalletPage() {
 
   async function handleWithdraw(asset: AssetSymbol, amount: number) {
     if (!userId) return { ok: false as const, message: "You must be logged in." }
-    const { error } = await api.POST("/api/wallet/{userId}/withdraw", {
-      params: { path: { userId } },
+    const { error } = await api.POST("/api/wallet/withdraw", {
       body: { asset, amount },
     })
     if (error) {
