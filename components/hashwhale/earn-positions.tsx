@@ -1,13 +1,13 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { CalendarClock, Clock3, Loader2, LockKeyhole, PiggyBank, UnlockKeyhole } from "lucide-react"
+import { useState } from "react"
+import { CalendarClock, ChevronDown, Clock3, Loader2, LockKeyhole, PiggyBank, UnlockKeyhole } from "lucide-react"
 import {
-  assetAmountFormatter,
   earnTermLabel,
   formatEarnDate,
   type EarnPosition,
 } from "@/lib/earn"
+import { assetAmountFormatter, formatRate } from "@/lib/format"
 import { AssetChip } from "./asset-chip"
 
 type WithdrawResult = { ok: true } | { ok: false; message: string }
@@ -26,28 +26,39 @@ function positionProgress(position: EarnPosition): number {
 }
 
 export function EarnPositions({
-  positions,
+  activePositions,
+  historyPositions,
+  activeHasMore,
+  historyHasMore,
+  loadingMore,
+  onLoadMoreActive,
+  onLoadMoreHistory,
   onWithdraw,
 }: {
-  positions: EarnPosition[]
+  activePositions: EarnPosition[]
+  historyPositions: EarnPosition[]
+  activeHasMore: boolean
+  historyHasMore: boolean
+  loadingMore: "ACTIVE" | "HISTORY" | null
+  onLoadMoreActive: () => void
+  onLoadMoreHistory: () => void
   onWithdraw: (positionId: number) => Promise<WithdrawResult>
 }) {
   const [tab, setTab] = useState<"ACTIVE" | "HISTORY">("ACTIVE")
   const [withdrawingId, setWithdrawingId] = useState<number | null>(null)
+  const [confirmingWithdrawId, setConfirmingWithdrawId] = useState<number | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
-  const visiblePositions = useMemo(
-    () => positions.filter((position) => (tab === "ACTIVE" ? position.status === "ACTIVE" : position.status !== "ACTIVE")),
-    [positions, tab],
-  )
-  const activeCount = positions.filter((position) => position.status === "ACTIVE").length
-  const historyCount = positions.length - activeCount
+  const visiblePositions = tab === "ACTIVE" ? activePositions : historyPositions
+  const hasMore = tab === "ACTIVE" ? activeHasMore : historyHasMore
+  const loadMore = tab === "ACTIVE" ? onLoadMoreActive : onLoadMoreHistory
 
   async function handleWithdraw(positionId: number) {
     setWithdrawingId(positionId)
     setActionError(null)
     const result = await onWithdraw(positionId)
     if (!result.ok) setActionError(result.message)
+    else setConfirmingWithdrawId(null)
     setWithdrawingId(null)
   }
 
@@ -79,7 +90,9 @@ export function EarnPositions({
               }}
               aria-pressed={tab === value}
             >
-              {value === "ACTIVE" ? `Active (${activeCount})` : `History (${historyCount})`}
+              {value === "ACTIVE"
+                ? `Active (${activePositions.length}${activeHasMore ? "+" : ""})`
+                : `History (${historyPositions.length}${historyHasMore ? "+" : ""})`}
             </button>
           ))}
         </div>
@@ -117,8 +130,9 @@ export function EarnPositions({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {visiblePositions.map((position, index) => {
+        <>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {visiblePositions.map((position, index) => {
             const progress = positionProgress(position)
             const flexible = position.termType === "FLEXIBLE"
             const loading = withdrawingId === position.id
@@ -166,7 +180,7 @@ export function EarnPositions({
                   <div>
                     <p className="text-xs" style={{ color: "var(--hw-muted)" }}>APY snapshot</p>
                     <p className="mt-1 text-sm font-bold tabular-nums" style={{ color: "var(--hw-primary)" }}>
-                      {position.apy.toFixed(2)}%
+                      {formatRate(position.apy)}
                     </p>
                     <p className="text-[11px]" style={{ color: "var(--hw-muted)" }}>at subscription</p>
                   </div>
@@ -214,12 +228,26 @@ export function EarnPositions({
                   </p>
                 ) : null}
 
-                {position.status === "ACTIVE" ? (
+                {position.status === "ACTIVE" && confirmingWithdrawId === position.id ? (
+                  <div className="rounded-lg border p-4" style={{ borderColor: "var(--hw-card-border)", background: "var(--hw-track)" }}>
+                    <p className="text-sm font-semibold" style={{ color: "var(--hw-text)" }}>Review Earn withdrawal</p>
+                    <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--hw-muted)" }}>
+                      Return {assetAmountFormatter.format(position.principalAmount)} {position.asset} principal plus {assetAmountFormatter.format(position.accruedRewards)} {position.asset} accrued rewards to Wallet.
+                    </p>
+                    <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                      <button type="button" onClick={() => setConfirmingWithdrawId(null)} disabled={loading} className="hw-btn-outline h-11 px-4 text-sm font-semibold">Cancel</button>
+                      <button type="button" onClick={() => void handleWithdraw(position.id)} disabled={loading} className="hw-submit flex h-11 items-center justify-center gap-2 px-4 text-sm font-semibold">
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                        Confirm withdrawal
+                      </button>
+                    </div>
+                  </div>
+                ) : position.status === "ACTIVE" ? (
                   <button
                     type="button"
-                    onClick={() => void handleWithdraw(position.id)}
+                    onClick={() => setConfirmingWithdrawId(position.id)}
                     disabled={!position.withdrawable || withdrawingId !== null}
-                    className="hw-btn-outline flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                    className="hw-btn-outline flex h-11 w-full items-center justify-center gap-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                     title={!position.withdrawable ? "Locked positions can be withdrawn after maturity" : undefined}
                   >
                     {loading ? (
@@ -233,8 +261,25 @@ export function EarnPositions({
                 ) : null}
               </article>
             )
-          })}
-        </div>
+            })}
+          </div>
+          {hasMore ? (
+            <div className="mt-5 flex justify-center border-t pt-5" style={{ borderColor: "var(--hw-card-border)" }}>
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={loadingMore !== null}
+                className="hw-btn-outline flex h-9 items-center justify-center gap-2 px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loadingMore === tab ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Loading</>
+                ) : (
+                  <>Load 10 more <ChevronDown className="h-4 w-4" /></>
+                )}
+              </button>
+            </div>
+          ) : null}
+        </>
       )}
     </section>
   )

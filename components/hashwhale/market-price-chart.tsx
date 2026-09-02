@@ -169,12 +169,12 @@ export function MarketPriceChart() {
         <div>
           <div className="flex items-center gap-2">
             <h2 id="market-chart-heading" className="text-xl font-bold" style={{ color: "var(--hw-text)" }}>
-              Market pulse
+              Price history
             </h2>
             {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: "var(--hw-primary)" }} /> : null}
           </div>
           <p className="mt-1 text-sm" style={{ color: "var(--hw-muted)" }}>
-            Live historical pricing with automatic background updates.
+            Stored market prices collected automatically in the background.
           </p>
         </div>
 
@@ -260,9 +260,9 @@ export function MarketPriceChart() {
               >
                 <Radio className="h-3 w-3" />
                 {history.source === "COINGECKO"
-                  ? history.stale ? "Cached · CoinGecko" : "Live · CoinGecko"
+                  ? history.stale ? "Stale · CoinGecko" : "Current · CoinGecko"
                   : history.source === "STATIC_FALLBACK"
-                    ? "Fallback · live history unavailable"
+                    ? "Fallback · history unavailable"
                     : "Configured price"}
               </span>
               {history.updatedAt ? (

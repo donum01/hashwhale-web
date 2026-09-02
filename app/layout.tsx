@@ -11,10 +11,9 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'HashWhale — Sign in',
+  title: 'HashWhale | Digital Asset Finance Demo',
   description:
-    'Log in or create your HashWhale account. Earn, Borrow, Spend and Convert digital assets on a regulated finance platform.',
-  generator: 'v0.app',
+    'A portfolio project demonstrating wallet, earn, and collateralized borrowing workflows.',
   icons: {
     icon: [
       {
@@ -37,8 +36,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   colorScheme: 'light dark',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: 'white' },
-    { media: '(prefers-color-scheme: dark)', color: 'black' },
+    { media: '(prefers-color-scheme: light)', color: '#f5f7fa' },
+    { media: '(prefers-color-scheme: dark)', color: '#0c1118' },
   ],
 }
 

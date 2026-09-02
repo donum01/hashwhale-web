@@ -4,7 +4,14 @@ export function LtvBar({ ltv, configuration }: { ltv: number; configuration: Bor
   const tier = ltvTier(ltv, configuration)
   const color = ltvTierColorVar(tier)
   const isDanger = tier === "danger"
-  const width = Math.min(Math.max(ltv, 0), 100)
+  const width = Math.min(Math.max((ltv / configuration.maxLtvPercent) * 100, 0), 100)
+  const status = ltv <= 0
+    ? "Enter amounts"
+    : tier === "safe"
+      ? "Safe"
+      : tier === "warn"
+        ? "Caution"
+        : "Over limit"
 
   return (
     <div className="flex flex-col gap-2">
@@ -23,9 +30,10 @@ export function LtvBar({ ltv, configuration }: { ltv: number; configuration: Bor
       <div
         className="hw-ltv-track h-2.5 w-full"
         role="progressbar"
-        aria-valuenow={Math.round(ltv)}
+        aria-valuenow={Math.min(Math.round(ltv), configuration.maxLtvPercent)}
         aria-valuemin={0}
-        aria-valuemax={100}
+        aria-valuemax={configuration.maxLtvPercent}
+        aria-valuetext={`${ltv.toFixed(1)}% LTV, ${status}. Maximum allowed ${configuration.maxLtvPercent}%.`}
         aria-label="Loan-to-value ratio"
       >
         <div
@@ -35,7 +43,7 @@ export function LtvBar({ ltv, configuration }: { ltv: number; configuration: Bor
       </div>
 
       <div className="flex items-center justify-between text-xs" style={{ color: "var(--hw-muted)" }}>
-        <span>Safe</span>
+        <span className="font-semibold" style={{ color }}>{status}</span>
         <span>Max {configuration.maxLtvPercent}%</span>
       </div>
     </div>

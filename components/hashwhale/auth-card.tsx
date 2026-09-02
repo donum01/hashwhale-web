@@ -178,14 +178,22 @@ export function AuthCard() {
   }, [status, mode])
 
   return (
-    <div className="hw-card-in hw-card relative z-10 w-full max-w-[420px] p-7 sm:p-8">
+    <div className="hw-card-in hw-card relative z-10 w-full max-w-[420px] p-6 sm:p-8">
       {/* Logo */}
       <div className="mb-6 flex justify-center">
         <Wordmark />
       </div>
+      <div className="mb-6 text-center">
+        <h2 className="text-xl font-semibold tracking-tight">
+          {mode === "login" ? "Welcome back" : "Create your account"}
+        </h2>
+        <p className="mt-1.5 text-sm" style={{ color: "var(--hw-muted)" }}>
+          {mode === "login" ? "Sign in to continue to your portfolio." : "Set up a HashWhale demo account."}
+        </p>
+      </div>
 
       {/* Tab switcher */}
-      <div className="hw-tabs relative mb-6 grid grid-cols-2 p-1">
+      <div className="hw-tabs relative mb-6 grid grid-cols-2 p-1" role="tablist" aria-label="Authentication mode">
         <span
           className="hw-tab-indicator absolute inset-y-1 w-[calc(50%-4px)]"
           style={{ transform: mode === "login" ? "translateX(4px)" : "translateX(calc(100% + 4px))" }}
@@ -194,19 +202,21 @@ export function AuthCard() {
         <button
           ref={loginTabRef}
           type="button"
+          role="tab"
           onClick={() => switchMode("login")}
-          className="relative z-10 rounded-lg py-2 text-sm font-semibold transition-colors duration-200"
+          className="relative z-10 h-11 rounded-lg px-3 text-sm font-semibold transition-colors duration-200"
           style={{ color: mode === "login" ? "var(--hw-text)" : "var(--hw-muted)" }}
-          aria-pressed={mode === "login"}
+          aria-selected={mode === "login"}
         >
           Log In
         </button>
         <button
           type="button"
+          role="tab"
           onClick={() => switchMode("signup")}
-          className="relative z-10 rounded-lg py-2 text-sm font-semibold transition-colors duration-200"
+          className="relative z-10 h-11 rounded-lg px-3 text-sm font-semibold transition-colors duration-200"
           style={{ color: mode === "signup" ? "var(--hw-text)" : "var(--hw-muted)" }}
-          aria-pressed={mode === "signup"}
+          aria-selected={mode === "signup"}
         >
           Sign Up
         </button>
@@ -266,6 +276,8 @@ export function AuthCard() {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={Boolean(errors.email)}
+              aria-describedby={errors.email ? "email-error" : undefined}
               className={`hw-input h-11 w-full px-3.5 text-sm ${errors.email ? "hw-input-error" : ""}`}
             />
           </Field>
@@ -278,13 +290,15 @@ export function AuthCard() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={Boolean(errors.password)}
+              aria-describedby={errors.password ? "password-error" : undefined}
               className={`hw-input h-11 w-full pl-3.5 pr-11 text-sm ${errors.password ? "hw-input-error" : ""}`}
             />
             <button
               type="button"
               onClick={() => setShowPassword((s) => !s)}
               aria-label={showPassword ? "Hide password" : "Show password"}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 transition-colors"
+              className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-md transition-colors"
               style={{ color: "var(--hw-muted)" }}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -293,14 +307,8 @@ export function AuthCard() {
         </div>
 
         {/* Sign-up-only fields — expand/slide in smoothly */}
-        <div
-          className="overflow-hidden transition-all duration-300 ease-out"
-          style={{
-            maxHeight: mode === "signup" ? "220px" : "0px",
-            opacity: mode === "signup" ? 1 : 0,
-          }}
-          aria-hidden={mode !== "signup"}
-        >
+        {mode === "signup" ? (
+        <div className="hw-fade-slide">
           <div className="flex flex-col gap-4 pt-0.5">
             <Field id="confirmPassword" label="Confirm password" error={errors.confirmPassword}>
               <input
@@ -310,7 +318,8 @@ export function AuthCard() {
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                tabIndex={mode === "signup" ? 0 : -1}
+                aria-invalid={Boolean(errors.confirmPassword)}
+                aria-describedby={errors.confirmPassword ? "confirmPassword-error" : undefined}
                 className={`hw-input h-11 w-full px-3.5 text-sm ${errors.confirmPassword ? "hw-input-error" : ""}`}
               />
             </Field>
@@ -320,7 +329,8 @@ export function AuthCard() {
                 id="country"
                 value={countryCode}
                 onChange={(e) => setCountryCode(e.target.value as CountryCode)}
-                tabIndex={mode === "signup" ? 0 : -1}
+                aria-invalid={Boolean(errors.country)}
+                aria-describedby={errors.country ? "country-error" : undefined}
                 className={`hw-input h-11 w-full appearance-none px-3.5 text-sm ${
                   errors.country ? "hw-input-error" : ""
                 }`}
@@ -349,6 +359,7 @@ export function AuthCard() {
             </Field>
           </div>
         </div>
+        ) : null}
 
         <button
           type="submit"
@@ -365,20 +376,11 @@ export function AuthCard() {
           )}
         </button>
 
-        {mode === "login" ? (
-          <button
-            type="button"
-            onClick={() => console.log("[v0] forgot password")}
-            className="mx-auto text-xs font-medium transition-colors hover:underline"
-            style={{ color: "var(--hw-primary)" }}
-          >
-            Forgot your password?
-          </button>
-        ) : (
+        {mode === "signup" ? (
           <p className="text-center text-xs leading-relaxed" style={{ color: "var(--hw-muted)" }}>
             By creating an account you agree to HashWhale&apos;s Terms of Service and Privacy Policy.
           </p>
-        )}
+        ) : null}
       </form>
 
       {/* Hidden by default — reveal when wiring real KYC data */}

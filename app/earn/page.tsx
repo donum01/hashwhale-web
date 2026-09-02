@@ -1,17 +1,14 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Info, Sparkles } from "lucide-react"
+import { AppShell } from "@/components/hashwhale/app-shell"
 import { EarnPositions } from "@/components/hashwhale/earn-positions"
-import { EarnProductCatalog } from "@/components/hashwhale/earn-product-catalog"
 import { EarnSubscribeForm } from "@/components/hashwhale/earn-subscribe-form"
 import { EarnSummary } from "@/components/hashwhale/earn-summary"
-import { Nav } from "@/components/hashwhale/nav"
-import { Toast } from "@/components/hashwhale/toast"
+import { Toast, type ToastVariant } from "@/components/hashwhale/toast"
 import { TransactionHistory } from "@/components/hashwhale/transaction-history"
 import { useTheme } from "@/components/hashwhale/theme-provider"
 import { api } from "@/lib/api"
-import { getUserId } from "@/lib/auth"
 import {
   apiEarnPositionToEarnPosition,
   apiEarnProductToEarnProduct,
@@ -20,12 +17,17 @@ import {
   type EarnProduct,
   type EarnSummary as EarnSummaryData,
 } from "@/lib/earn"
+import { HISTORY_BATCH_SIZE, historyPageState, type HistoryPageState } from "@/lib/history"
 import {
   apiBalanceToBalance,
   apiTransactionToTransaction,
   type WalletBalance,
   type WalletTransaction,
 } from "@/lib/wallet"
+import { useAuthUser } from "@/lib/use-auth-user"
+
+const EMPTY_HISTORY_PAGE: HistoryPageState = { hasMore: false, nextCursor: null }
+const EARN_TRANSACTION_TYPES = ["EARN_SUBSCRIBE", "EARN_WITHDRAW"] as const
 
 function preferredProduct(products: EarnProduct[], balances: WalletBalance[]): EarnProduct | null {
   const affordable = products.find((product) => {
@@ -38,23 +40,34 @@ function preferredProduct(products: EarnProduct[], balances: WalletBalance[]): E
     ?? null
 }
 
+function appendUniquePositions(current: EarnPosition[], next: EarnPosition[]): EarnPosition[] {
+  const knownIds = new Set(current.map((position) => position.id))
+  return [...current, ...next.filter((position) => !knownIds.has(position.id))]
+}
+
 export default function EarnPage() {
   const { theme, toggleTheme } = useTheme()
   const [products, setProducts] = useState<EarnProduct[]>([])
-  const [positions, setPositions] = useState<EarnPosition[]>([])
+  const [activePositions, setActivePositions] = useState<EarnPosition[]>([])
+  const [historyPositions, setHistoryPositions] = useState<EarnPosition[]>([])
+  const [activePage, setActivePage] = useState<HistoryPageState>(EMPTY_HISTORY_PAGE)
+  const [historyPage, setHistoryPage] = useState<HistoryPageState>(EMPTY_HISTORY_PAGE)
   const [summary, setSummary] = useState<EarnSummaryData | null>(null)
   const [balances, setBalances] = useState<WalletBalance[]>([])
   const [transactions, setTransactions] = useState<WalletTransaction[]>([])
+  const [transactionPage, setTransactionPage] = useState<HistoryPageState>(EMPTY_HISTORY_PAGE)
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingMorePositions, setLoadingMorePositions] = useState<"ACTIVE" | "HISTORY" | null>(null)
+  const [loadingMoreTransactions, setLoadingMoreTransactions] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string; variant: ToastVariant } | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const userId = getUserId()
+  const { userId, authReady } = useAuthUser()
 
-  function showToast(message: string) {
+  function showToast(message: string, variant: ToastVariant = "success") {
     if (toastTimer.current) clearTimeout(toastTimer.current)
-    setToast(message)
+    setToast({ message, variant })
     toastTimer.current = setTimeout(() => setToast(null), 3500)
   }
 
@@ -65,22 +78,41 @@ export default function EarnPage() {
     }
 
     try {
-      const [productsResponse, positionsResponse, summaryResponse, balancesResponse, transactionsResponse] =
+      const [productsResponse, activeResponse, historyResponse, summaryResponse, balancesResponse, transactionsResponse] =
         await Promise.all([
           api.GET("/api/earn/products", { cache: "no-store" }),
-          api.GET("/api/earn/positions", { cache: "no-store" }),
+          api.GET("/api/earn/positions", {
+            params: { query: { limit: HISTORY_BATCH_SIZE, status: ["ACTIVE"] } },
+            cache: "no-store",
+          }),
+          api.GET("/api/earn/positions", {
+            params: { query: { limit: HISTORY_BATCH_SIZE, status: ["WITHDRAWN"] } },
+            cache: "no-store",
+          }),
           api.GET("/api/earn/summary", { cache: "no-store" }),
           api.GET("/api/wallet/balances", { cache: "no-store" }),
-          api.GET("/api/wallet/transactions", { cache: "no-store" }),
+          api.GET("/api/wallet/transactions", {
+            params: { query: { limit: HISTORY_BATCH_SIZE, type: [...EARN_TRANSACTION_TYPES] } },
+            cache: "no-store",
+          }),
         ])
 
       const hasError = productsResponse.error
-        || positionsResponse.error
+        || activeResponse.error
+        || historyResponse.error
         || summaryResponse.error
         || balancesResponse.error
         || transactionsResponse.error
 
-      if (hasError || !productsResponse.data || !positionsResponse.data || !summaryResponse.data || !balancesResponse.data) {
+      if (
+        hasError
+        || !productsResponse.data
+        || !activeResponse.data
+        || !historyResponse.data
+        || !summaryResponse.data
+        || !balancesResponse.data
+        || !transactionsResponse.data
+      ) {
         setLoadError("Could not load Earn data. Please try again.")
         return
       }
@@ -88,14 +120,14 @@ export default function EarnPage() {
       const nextProducts = productsResponse.data.map(apiEarnProductToEarnProduct)
       const nextBalances = balancesResponse.data.map(apiBalanceToBalance)
       setProducts(nextProducts)
-      setPositions(positionsResponse.data.map(apiEarnPositionToEarnPosition))
+      setActivePositions(activeResponse.data.map(apiEarnPositionToEarnPosition))
+      setHistoryPositions(historyResponse.data.map(apiEarnPositionToEarnPosition))
+      setActivePage(historyPageState(activeResponse.response, activeResponse.data.length))
+      setHistoryPage(historyPageState(historyResponse.response, historyResponse.data.length))
       setSummary(apiEarnSummaryToEarnSummary(summaryResponse.data))
       setBalances(nextBalances)
-      setTransactions(
-        (transactionsResponse.data ?? [])
-          .map(apiTransactionToTransaction)
-          .filter((transaction) => transaction.type === "EARN_SUBSCRIBE" || transaction.type === "EARN_WITHDRAW"),
-      )
+      setTransactions(transactionsResponse.data.map(apiTransactionToTransaction))
+      setTransactionPage(historyPageState(transactionsResponse.response, transactionsResponse.data.length))
       setSelectedProductId((current) => {
         if (current && nextProducts.some((product) => product.id === current && product.active)) return current
         return preferredProduct(nextProducts, nextBalances)?.id ?? null
@@ -109,12 +141,73 @@ export default function EarnPage() {
   }
 
   useEffect(() => {
+    if (!authReady) return
     void refreshData()
     return () => {
       if (toastTimer.current) clearTimeout(toastTimer.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId])
+  }, [authReady, userId])
+
+  async function loadMorePositions(kind: "ACTIVE" | "HISTORY") {
+    const page = kind === "ACTIVE" ? activePage : historyPage
+    if (!page.hasMore || page.nextCursor == null || loadingMorePositions) return
+    setLoadingMorePositions(kind)
+    const status = kind === "ACTIVE" ? "ACTIVE" : "WITHDRAWN"
+
+    try {
+      const response = await api.GET("/api/earn/positions", {
+        params: {
+          query: { limit: HISTORY_BATCH_SIZE, beforeId: page.nextCursor, status: [status] },
+        },
+        cache: "no-store",
+      })
+      if (response.error || !response.data) {
+        showToast("Could not load more Earn positions", "error")
+        return
+      }
+
+      const nextPositions = response.data.map(apiEarnPositionToEarnPosition)
+      if (kind === "ACTIVE") {
+        setActivePositions((current) => appendUniquePositions(current, nextPositions))
+        setActivePage(historyPageState(response.response, response.data.length))
+      } else {
+        setHistoryPositions((current) => appendUniquePositions(current, nextPositions))
+        setHistoryPage(historyPageState(response.response, response.data.length))
+      }
+    } catch {
+      showToast("Could not reach the Earn service", "error")
+    } finally {
+      setLoadingMorePositions(null)
+    }
+  }
+
+  async function loadMoreTransactions() {
+    if (!transactionPage.hasMore || transactionPage.nextCursor == null || loadingMoreTransactions) return
+    setLoadingMoreTransactions(true)
+    try {
+      const response = await api.GET("/api/wallet/transactions", {
+        params: {
+          query: {
+            limit: HISTORY_BATCH_SIZE,
+            beforeId: transactionPage.nextCursor,
+            type: [...EARN_TRANSACTION_TYPES],
+          },
+        },
+        cache: "no-store",
+      })
+      if (response.error || !response.data) {
+        showToast("Could not load more Earn activity", "error")
+        return
+      }
+      setTransactions((current) => [...current, ...response.data.map(apiTransactionToTransaction)])
+      setTransactionPage(historyPageState(response.response, response.data.length))
+    } catch {
+      showToast("Could not reach the wallet service", "error")
+    } finally {
+      setLoadingMoreTransactions(false)
+    }
+  }
 
   async function handleSubscribe(productId: string, amount: number) {
     try {
@@ -150,101 +243,81 @@ export default function EarnPage() {
     }
   }
 
-  const selectedProduct = products.find((product) => product.id === selectedProductId) ?? null
-
   return (
-    <main
-      className={`hw ${theme === "dark" ? "hw-dark" : "hw-light"} relative min-h-svh overflow-hidden transition-colors duration-300`}
-      style={{ background: "var(--hw-bg)", color: "var(--hw-text)" }}
-    >
-      <div className="hw-glow pointer-events-none absolute left-1/2 top-0 h-[560px] w-[560px]" aria-hidden="true" />
-
-      <div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
-        <header className="mb-8 flex items-center justify-between">
-          <Nav theme={theme} onToggleTheme={toggleTheme} />
-        </header>
-
-        {!userId ? (
-          <p className="text-sm" style={{ color: "var(--hw-error)" }}>
-            Please log in to access Earn.
-          </p>
-        ) : loading ? (
-          <div className="flex items-center gap-3 py-12 text-sm" style={{ color: "var(--hw-muted)" }}>
-            <span className="h-2.5 w-2.5 animate-pulse rounded-full" style={{ background: "var(--hw-primary)" }} />
-            Loading Earn products and positions…
-          </div>
-        ) : loadError || !summary ? (
-          <div className="hw-card max-w-lg p-6">
-            <p className="text-sm font-semibold" style={{ color: "var(--hw-error)" }}>{loadError ?? "Earn is unavailable."}</p>
-            <button
-              type="button"
-              onClick={() => {
-                setLoading(true)
-                void refreshData()
-              }}
-              className="hw-btn-outline mt-4 px-4 py-2 text-sm font-semibold"
-            >
-              Try again
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-8">
-            <section className="hw-card-in flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <div className="mb-2 flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--hw-primary)" }}>
-                  <Sparkles className="h-4 w-4" aria-hidden="true" />
-                  Grow idle balances
-                </div>
-                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl" style={{ color: "var(--hw-text)" }}>
-                  Earn
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed sm:text-base" style={{ color: "var(--hw-muted)" }}>
-                  Choose flexible access or lock assets for a fixed term. Track rewards and maturity from one place.
-                </p>
-              </div>
-              <div
-                className="rounded-full px-3 py-1.5 text-xs font-bold"
-                style={{ background: "var(--hw-primary-soft)", color: "var(--hw-primary)" }}
-              >
-                APY · simple daily accrual
-              </div>
-            </section>
-
+    <AppShell theme={theme} onToggleTheme={toggleTheme}>
+      {!authReady || loading ? (
+        <div className="flex items-center gap-3 py-12 text-sm" style={{ color: "var(--hw-muted)" }}>
+          <span className="h-2.5 w-2.5 animate-pulse rounded-full" style={{ background: "var(--hw-primary)" }} />
+          Loading Earn products and positions…
+        </div>
+      ) : !userId ? (
+        <p className="text-sm" style={{ color: "var(--hw-error)" }}>
+          Please log in to access Earn.
+        </p>
+      ) : loadError || !summary ? (
+        <div className="hw-card max-w-lg p-6">
+          <p className="text-sm font-semibold" style={{ color: "var(--hw-error)" }}>{loadError ?? "Earn is unavailable."}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setLoading(true)
+              void refreshData()
+            }}
+            className="hw-btn-outline mt-4 px-4 py-2 text-sm font-semibold"
+          >
+            Try again
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-7">
+          <section className="hw-page-header" aria-labelledby="earn-heading">
+            <div>
+              <p className="hw-eyebrow">Yield products</p>
+              <h1 id="earn-heading" className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl" style={{ color: "var(--hw-text)" }}>
+                Earn
+              </h1>
+              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed" style={{ color: "var(--hw-muted)" }}>
+                Choose an asset and term, preview the return, and create a simulated yield position.
+              </p>
+            </div>
             <div
-              className="hw-card flex items-start gap-3 p-4"
-              style={{ borderColor: "var(--hw-primary)", background: "var(--hw-primary-soft)" }}
-              role="note"
-              aria-label="Earn simulation notice"
+              className="rounded-lg border px-3 py-2 text-xs font-semibold"
+              style={{ borderColor: "var(--hw-card-border)", color: "var(--hw-muted)", background: "var(--hw-card)" }}
             >
-              <Info className="mt-0.5 h-5 w-5 shrink-0" style={{ color: "var(--hw-primary)" }} aria-hidden="true" />
-              <div>
-                <p className="text-sm font-bold" style={{ color: "var(--hw-text)" }}>Simulation mode</p>
-                <p className="mt-0.5 text-xs leading-relaxed" style={{ color: "var(--hw-muted)" }}>
-                  Earn products, rates, and rewards are simulated in the internal ledger. No real assets are invested, staked, or transferred on-chain.
-                </p>
-              </div>
+              APY · simple daily accrual
             </div>
+          </section>
 
-            <EarnSummary summary={summary} />
-
-            <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-              <EarnProductCatalog
-                products={products}
-                selectedProductId={selectedProductId}
-                onSelect={setSelectedProductId}
-              />
-              <EarnSubscribeForm product={selectedProduct} balances={balances} onSubscribe={handleSubscribe} />
-            </div>
-
-            <EarnPositions positions={positions} onWithdraw={handleWithdraw} />
-            <TransactionHistory transactions={transactions} title="Earn activity" />
-          </div>
-        )}
-      </div>
-
+          <EarnSummary summary={summary} />
+          <EarnSubscribeForm
+            products={products}
+            selectedProductId={selectedProductId}
+            balances={balances}
+            onSelectProduct={setSelectedProductId}
+            onSubscribe={handleSubscribe}
+          />
+          <EarnPositions
+            activePositions={activePositions}
+            historyPositions={historyPositions}
+            activeHasMore={activePage.hasMore}
+            historyHasMore={historyPage.hasMore}
+            loadingMore={loadingMorePositions}
+            onLoadMoreActive={() => void loadMorePositions("ACTIVE")}
+            onLoadMoreHistory={() => void loadMorePositions("HISTORY")}
+            onWithdraw={handleWithdraw}
+          />
+          <TransactionHistory
+            transactions={transactions}
+            title="Earn activity"
+            hasMore={transactionPage.hasMore}
+            loadingMore={loadingMoreTransactions}
+            onLoadMore={() => void loadMoreTransactions()}
+          />
+        </div>
+      )}
       <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
-        {toast ? <Toast message={toast} /> : null}
+        {toast ? <Toast message={toast.message} variant={toast.variant} /> : null}
       </div>
-    </main>
+    </AppShell>
   )
 }

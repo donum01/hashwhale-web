@@ -56,6 +56,14 @@ export function balanceValueUsd(balance: WalletBalance, prices: AssetPricesUsd):
   return (balance.availableAmount + balance.lockedAmount) * prices[balance.asset]
 }
 
+export function assetAmountValueUsd(
+  asset: AssetSymbol,
+  amount: number,
+  prices: AssetPricesUsd,
+): number {
+  return amount * prices[asset]
+}
+
 export function totalPortfolioValue(balances: WalletBalance[], prices: AssetPricesUsd): number {
   return balances.reduce((sum, balance) => sum + balanceValueUsd(balance, prices), 0)
 }
@@ -72,10 +80,10 @@ export function withAllAssets(balances: WalletBalance[]): WalletBalance[] {
 export const TRANSACTION_LABELS: Record<TransactionType, string> = {
   DEPOSIT: "Simulated deposit",
   WITHDRAW: "Simulated withdrawal",
-  BORROW: "Borrow",
-  REPAY: "Repay",
-  EARN_SUBSCRIBE: "Earn Subscribe",
-  EARN_WITHDRAW: "Earn Withdraw",
+  BORROW: "Loan opened",
+  REPAY: "Loan repaid",
+  EARN_SUBSCRIBE: "Earn subscription",
+  EARN_WITHDRAW: "Earn withdrawal",
 }
 
 export const dateFormatter = new Intl.DateTimeFormat("en-US", {

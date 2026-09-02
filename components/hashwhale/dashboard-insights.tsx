@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { AlertCircle, ArrowRight, CalendarClock, CheckCircle2, CircleAlert, Info, ShieldCheck, Sparkles, WalletCards } from "lucide-react"
-import { currencyUsdPrecise } from "@/lib/borrow"
+import { formatRate, usdValueFormatter } from "@/lib/format"
 import { formatEarnDate } from "@/lib/earn"
 import type { AlertSeverity, BorrowHealth, DashboardSummary } from "@/lib/dashboard"
 
@@ -29,7 +29,7 @@ export function ActionCenter({ summary }: { summary: DashboardSummary }) {
     <section className="hw-card p-5 sm:p-6" aria-labelledby="action-center-heading">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 id="action-center-heading" className="text-lg font-bold" style={{ color: "var(--hw-text)" }}>Action centre</h2>
+          <h2 id="action-center-heading" className="text-lg font-semibold" style={{ color: "var(--hw-text)" }}>Action center</h2>
           <p className="mt-1 text-xs" style={{ color: "var(--hw-muted)" }}>Only items that may need your attention.</p>
         </div>
         <span className="rounded-full px-2.5 py-1 text-xs font-bold" style={{ color: summary.alerts.length ? "var(--hw-ltv-warn)" : "var(--hw-ltv-safe)", background: "var(--hw-track)" }}>
@@ -50,17 +50,24 @@ export function ActionCenter({ summary }: { summary: DashboardSummary }) {
           {summary.alerts.map((alert, index) => {
             const style = severityStyle(alert.severity)
             const Icon = style.icon
+            const isKycNotice = /kyc|identity verification/i.test(`${alert.title} ${alert.message}`)
             return (
               <article key={`${alert.title}-${index}`} className="hw-card-in flex items-start gap-3 rounded-xl p-4" style={{ background: style.background, animationDelay: `${index * 45}ms` }}>
                 <Icon className="mt-0.5 h-5 w-5 shrink-0" style={{ color: style.color }} aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold" style={{ color: "var(--hw-text)" }}>{alert.title}</p>
-                  <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--hw-muted)" }}>{alert.message}</p>
+                  <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--hw-muted)" }}>
+                    {alert.message}
+                  </p>
                 </div>
                 {alert.href && alert.actionLabel ? (
                   <Link href={alert.href} className="shrink-0 text-xs font-bold hover:underline" style={{ color: style.color }}>
                     {alert.actionLabel}
                   </Link>
+                ) : isKycNotice ? (
+                  <span className="shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold" style={{ color: "var(--hw-muted)", background: "var(--hw-card)" }}>
+                    Unavailable in demo
+                  </span>
                 ) : null}
               </article>
             )
@@ -86,13 +93,13 @@ export function CapitalAllocation({ summary }: { summary: DashboardSummary }) {
 
   return (
     <section className="hw-card p-5 sm:p-6" aria-labelledby="allocation-heading">
-      <h2 id="allocation-heading" className="text-lg font-bold" style={{ color: "var(--hw-text)" }}>Capital allocation</h2>
+      <h2 id="allocation-heading" className="text-lg font-semibold" style={{ color: "var(--hw-text)" }}>Capital allocation</h2>
       <p className="mt-1 text-xs" style={{ color: "var(--hw-muted)" }}>How your assets are currently being used.</p>
       <div className="mt-6 flex flex-col items-center gap-6 sm:flex-row">
         <div className="relative h-36 w-36 shrink-0 rounded-full" style={{ background: donut }} role="img" aria-label="Capital allocation chart">
           <div className="absolute inset-[18px] flex flex-col items-center justify-center rounded-full text-center" style={{ background: "var(--hw-card)" }}>
             <span className="text-xs" style={{ color: "var(--hw-muted)" }}>Allocated</span>
-            <strong className="mt-0.5 text-sm tabular-nums" style={{ color: "var(--hw-text)" }}>{currencyUsdPrecise.format(total)}</strong>
+            <strong className="mt-0.5 text-sm tabular-nums" style={{ color: "var(--hw-text)" }}>{usdValueFormatter.format(total)}</strong>
           </div>
         </div>
         <div className="w-full space-y-3">
@@ -102,7 +109,7 @@ export function CapitalAllocation({ summary }: { summary: DashboardSummary }) {
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: item.color }} /> {item.label}
               </span>
               <span className="font-bold tabular-nums" style={{ color: "var(--hw-text)" }}>
-                {currencyUsdPrecise.format(item.value)}
+                {usdValueFormatter.format(item.value)}
               </span>
             </div>
           ))}
@@ -155,7 +162,7 @@ export function ProductHealth({ summary }: { summary: DashboardSummary }) {
             <p className="text-xs" style={{ color: "var(--hw-muted)" }}>active positions</p>
           </div>
           <div className="text-right">
-            <p className="text-lg font-bold tabular-nums" style={{ color: "var(--hw-ltv-safe)" }}>{summary.weightedAverageEarnApy.toFixed(2)}%</p>
+            <p className="text-lg font-bold tabular-nums" style={{ color: "var(--hw-ltv-safe)" }}>{formatRate(summary.weightedAverageEarnApy)}</p>
             <p className="text-xs" style={{ color: "var(--hw-muted)" }}>weighted APY</p>
           </div>
         </div>
@@ -167,10 +174,9 @@ export function ProductHealth({ summary }: { summary: DashboardSummary }) {
 export function RecommendedAction({ summary }: { summary: DashboardSummary }) {
   return (
     <section className="hw-card relative overflow-hidden p-5 sm:p-6" aria-labelledby="recommendation-heading" style={{ borderColor: "var(--hw-primary)" }}>
-      <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full" style={{ background: "var(--hw-glow)" }} />
       <div className="relative">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide" style={{ color: "var(--hw-primary)" }}>
-          <WalletCards className="h-4 w-4" /> Suggested next action
+          <WalletCards className="h-4 w-4" /> Next action
         </div>
         <h2 id="recommendation-heading" className="mt-4 text-xl font-bold" style={{ color: "var(--hw-text)" }}>{summary.recommendation.title}</h2>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed" style={{ color: "var(--hw-muted)" }}>{summary.recommendation.message}</p>

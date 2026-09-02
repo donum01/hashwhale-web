@@ -22,6 +22,7 @@ export function Field({
       <div className="relative">{children}</div>
       {error ? (
         <p
+          id={`${id}-error`}
           key={error}
           className="hw-fade-slide flex items-center gap-1 text-xs font-medium"
           style={{ color: "var(--hw-error)" }}

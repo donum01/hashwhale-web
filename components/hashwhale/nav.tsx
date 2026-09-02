@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LogOut, Menu, X } from "lucide-react"
+import { CircleDot, LogOut, Menu, X } from "lucide-react"
 import { Wordmark } from "./wordmark"
 import { ThemeToggle } from "./theme-toggle"
 import { clearAuth } from "@/lib/auth"
@@ -25,32 +25,6 @@ export function Nav({
   const pathname = usePathname()
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [indicator, setIndicator] = useState({ left: 0, width: 0, ready: false })
-  const linkRefs = useRef<Record<string, HTMLAnchorElement | null>>({})
-  const railRef = useRef<HTMLDivElement>(null)
-
-  function measureIndicator() {
-    const activeEl = linkRefs.current[pathname]
-    const railEl = railRef.current
-    if (!activeEl || !railEl) {
-      setIndicator((s) => ({ ...s, ready: false }))
-      return
-    }
-    const railRect = railEl.getBoundingClientRect()
-    const linkRect = activeEl.getBoundingClientRect()
-    setIndicator({
-      left: linkRect.left - railRect.left,
-      width: linkRect.width,
-      ready: true,
-    })
-  }
-
-  useEffect(() => {
-    measureIndicator()
-    window.addEventListener("resize", measureIndicator)
-    return () => window.removeEventListener("resize", measureIndicator)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname])
 
   function logout() {
     clearAuth()
@@ -64,10 +38,10 @@ export function Nav({
   return (
     <nav
       aria-label="Primary navigation"
-      className="hw-nav relative z-40 w-full min-w-0 py-3 backdrop-blur-xl transition-colors duration-300"
+      className="hw-nav w-full min-w-0 rounded-xl border px-3 py-2 shadow-sm backdrop-blur-xl transition-colors duration-200 sm:px-4"
       style={{
         background: "var(--hw-nav-bg)",
-        borderBottom: "1px solid var(--hw-input-border)",
+        borderColor: "var(--hw-card-border)",
       }}
     >
       <div className="flex w-full min-w-0 items-center justify-between gap-2">
@@ -77,30 +51,19 @@ export function Nav({
           </div>
 
           {/* Desktop nav rail */}
-          <div ref={railRef} className="relative hidden shrink-0 items-center gap-1 md:flex">
-            {indicator.ready ? (
-              <span
-                className="absolute inset-y-1 rounded-lg transition-all duration-300 ease-out"
-                style={{
-                  left: indicator.left,
-                  width: indicator.width,
-                  background: "var(--hw-primary-soft)",
-                }}
-                aria-hidden="true"
-              />
-            ) : null}
+          <div className="hidden shrink-0 items-center gap-1 lg:flex">
             {LINKS.map((link) => {
               const active = isActivePath(link.href)
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  ref={(el) => {
-                    linkRefs.current[link.href] = el
-                  }}
                   aria-current={active ? "page" : undefined}
-                  className="relative z-10 rounded-lg px-4 py-2 text-sm font-semibold transition-colors duration-200"
-                  style={{ color: active ? "var(--hw-primary)" : "var(--hw-muted)" }}
+                  className="rounded-lg px-3 py-2 text-sm font-semibold transition-colors duration-150"
+                  style={{
+                    color: active ? "var(--hw-primary)" : "var(--hw-muted)",
+                    background: active ? "var(--hw-primary-soft)" : "transparent",
+                  }}
                 >
                   {link.label}
                 </Link>
@@ -110,12 +73,15 @@ export function Nav({
         </div>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <span className="hw-demo-badge hidden sm:inline-flex">
+            <CircleDot className="h-3 w-3" aria-hidden="true" /> Demo
+          </span>
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
 
           <button
             type="button"
             onClick={logout}
-            className="hidden h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold transition-colors duration-200 md:flex"
+            className="hidden h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold transition-colors duration-150 hover:bg-[var(--hw-track)] lg:flex"
             style={{ color: "var(--hw-muted)" }}
             aria-label="Log out"
           >
@@ -127,7 +93,7 @@ export function Nav({
           <button
             type="button"
             onClick={() => setMobileOpen((o) => !o)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors md:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-lg transition-colors lg:hidden"
             style={{ color: "var(--hw-muted)" }}
             aria-label="Toggle menu"
             aria-expanded={mobileOpen}
@@ -142,7 +108,7 @@ export function Nav({
       <div
         id="mobile-navigation"
         aria-hidden={!mobileOpen}
-        className="overflow-hidden transition-all duration-300 ease-out md:hidden"
+        className="overflow-hidden transition-all duration-300 ease-out lg:hidden"
         style={{
           maxHeight: mobileOpen ? "280px" : "0px",
           opacity: mobileOpen ? 1 : 0,
@@ -150,6 +116,10 @@ export function Nav({
         }}
       >
         <div className="flex w-full flex-col gap-1 pt-3">
+          <div className="mb-1 flex items-center justify-between px-3 py-2 sm:hidden">
+            <span className="text-xs font-semibold" style={{ color: "var(--hw-muted)" }}>Environment</span>
+            <span className="hw-demo-badge inline-flex"><CircleDot className="h-3 w-3" /> Demo</span>
+          </div>
           {LINKS.map((link) => {
             const active = isActivePath(link.href)
             return (

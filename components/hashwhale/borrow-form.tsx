@@ -6,11 +6,11 @@ import {
   COLLATERAL_ASSET_LIST,
   collateralValueUsd,
   computeLtv,
-  currencyUsd,
   type BorrowConfiguration,
   type CollateralAssetSymbol,
   type WalletBalance,
 } from "@/lib/borrow"
+import { formatAssetAmount, formatRate, usdValueFormatter } from "@/lib/format"
 import { AssetChip } from "./asset-chip"
 import { LtvBar } from "./ltv-bar"
 
@@ -34,6 +34,7 @@ export function BorrowForm({
   const [borrow, setBorrow] = useState("")
   const [status, setStatus] = useState<"idle" | "loading">("idle")
   const [formError, setFormError] = useState<string | null>(null)
+  const [reviewing, setReviewing] = useState(false)
 
   const collateralNum = Number.parseFloat(collateral) || 0
   const borrowNum = Number.parseFloat(borrow) || 0
@@ -58,11 +59,16 @@ export function BorrowForm({
 
   function fillMax() {
     setCollateral(String(currentBalance))
+    setReviewing(false)
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!valid) return
+    if (!reviewing) {
+      setReviewing(true)
+      return
+    }
     setStatus("loading")
     setFormError(null)
 
@@ -75,6 +81,7 @@ export function BorrowForm({
     if (result.ok) {
       setCollateral("")
       setBorrow("")
+      setReviewing(false)
     } else {
       setFormError(result.message)
     }
@@ -83,11 +90,11 @@ export function BorrowForm({
 
   return (
     <div className="hw-card-in hw-card w-full p-6 sm:p-7">
-      <h2 className="text-lg font-bold" style={{ color: "var(--hw-text)" }}>
+      <h2 className="text-lg font-semibold" style={{ color: "var(--hw-text)" }}>
         Create a loan
       </h2>
       <p className="mb-6 mt-1 text-sm" style={{ color: "var(--hw-muted)" }}>
-        Deposit collateral and borrow USDT instantly.
+        Choose collateral, enter an amount, and review the resulting LTV.
       </p>
 
       {formError ? (
@@ -113,7 +120,11 @@ export function BorrowForm({
             <select
               id="asset"
               value={asset}
-              onChange={(e) => setAsset(e.target.value as CollateralAssetSymbol)}
+              onChange={(e) => {
+                setAsset(e.target.value as CollateralAssetSymbol)
+                setReviewing(false)
+              }}
+              disabled={reviewing}
               className="hw-input h-11 w-full appearance-none pl-3.5 pr-11 text-sm font-medium"
             >
               {COLLATERAL_ASSET_LIST.map((a) => (
@@ -142,7 +153,7 @@ export function BorrowForm({
               Collateral amount
             </label>
             <span className="text-xs" style={{ color: overMax ? "var(--hw-error)" : "var(--hw-muted)" }}>
-              Balance: {currentBalance} {asset}
+              Balance: {formatAssetAmount(currentBalance, asset)}
             </span>
           </div>
           <div className="relative">
@@ -157,13 +168,20 @@ export function BorrowForm({
               step="any"
               placeholder="0.00"
               value={collateral}
-              onChange={(e) => setCollateral(e.target.value)}
+              onChange={(e) => {
+                setCollateral(e.target.value)
+                setReviewing(false)
+              }}
+              disabled={reviewing}
+              aria-invalid={overMax}
+              aria-describedby={overMax ? "collateral-balance-error" : undefined}
               className={`hw-input h-11 w-full pl-10 pr-16 text-sm tabular-nums ${overMax ? "hw-input-error" : ""}`}
             />
             <button
               type="button"
               onClick={fillMax}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-xs font-bold transition-colors"
+              disabled={reviewing || currentBalance <= 0}
+              className="absolute right-0 top-1/2 flex h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-r-lg px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
               style={{ color: "var(--hw-primary)", background: "var(--hw-primary-soft)" }}
             >
               Max
@@ -171,7 +189,12 @@ export function BorrowForm({
           </div>
           {collateralNum > 0 ? (
             <span className="text-xs tabular-nums" style={{ color: "var(--hw-muted)" }}>
-              ≈ {currencyUsd.format(collateralValue)} collateral value
+              ≈ {usdValueFormatter.format(collateralValue)} collateral value
+            </span>
+          ) : null}
+          {overMax ? (
+            <span id="collateral-balance-error" className="text-xs font-medium" style={{ color: "var(--hw-error)" }}>
+              Collateral exceeds your available {asset} balance.
             </span>
           ) : null}
         </div>
@@ -189,7 +212,11 @@ export function BorrowForm({
               step="any"
               placeholder="0.00"
               value={borrow}
-              onChange={(e) => setBorrow(e.target.value)}
+              onChange={(e) => {
+                setBorrow(e.target.value)
+                setReviewing(false)
+              }}
+              disabled={reviewing}
               className="hw-input h-11 w-full pl-3.5 pr-16 text-sm tabular-nums"
             />
             <span
@@ -213,30 +240,54 @@ export function BorrowForm({
           ) : null}
         </div>
 
+        {reviewing ? (
+          <div className="rounded-lg border p-4" style={{ borderColor: "var(--hw-card-border)", background: "var(--hw-primary-soft)" }}>
+            <p className="text-sm font-semibold" style={{ color: "var(--hw-text)" }}>Review your loan</p>
+            <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+              <div><dt style={{ color: "var(--hw-muted)" }}>Collateral locked</dt><dd className="font-semibold tabular-nums">{formatAssetAmount(collateralNum, asset)}</dd></div>
+              <div><dt style={{ color: "var(--hw-muted)" }}>You receive</dt><dd className="font-semibold tabular-nums">{formatAssetAmount(borrowNum, "USDT")}</dd></div>
+              <div><dt style={{ color: "var(--hw-muted)" }}>Opening LTV</dt><dd className="font-semibold tabular-nums">{ltv.toFixed(1)}%</dd></div>
+              <div><dt style={{ color: "var(--hw-muted)" }}>Interest rate</dt><dd className="font-semibold tabular-nums">{formatRate(configuration.interestRateApr)} APR</dd></div>
+            </dl>
+            <p className="mt-3 text-xs leading-relaxed" style={{ color: "var(--hw-muted)" }}>
+              Confirming locks the collateral until this loan is repaid or liquidated.
+            </p>
+          </div>
+        ) : null}
+
         <div
           className="flex items-center justify-between rounded-lg px-4 py-3 text-sm"
           style={{ background: "var(--hw-input-bg)", border: "1px solid var(--hw-input-border)" }}
         >
           <span style={{ color: "var(--hw-muted)" }}>Interest rate</span>
           <span className="font-bold tabular-nums" style={{ color: "var(--hw-text)" }}>
-            {configuration.interestRateApr.toFixed(2)}% APR
+            {formatRate(configuration.interestRateApr)} APR
           </span>
         </div>
 
-        <button
-          type="submit"
-          disabled={!valid}
-          className="hw-submit mt-1 flex h-11 w-full items-center justify-center gap-2 text-sm font-semibold"
-        >
-          {status === "loading" ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Confirming…
-            </>
-          ) : (
-            "Confirm Borrow"
-          )}
-        </button>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row">
+          {reviewing ? (
+            <button type="button" onClick={() => setReviewing(false)} disabled={status === "loading"} className="hw-btn-outline h-11 px-5 text-sm font-semibold sm:flex-1">
+              Back
+            </button>
+          ) : null}
+          <button
+            type="submit"
+            disabled={!valid}
+            className="hw-submit mt-1 flex h-11 w-full items-center justify-center gap-2 text-sm font-semibold sm:flex-1"
+          >
+            {status === "loading" ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Confirming…
+              </>
+            ) : reviewing ? (
+              "Confirm loan"
+            ) : (
+              "Review loan"
+            )}
+          </button>
+        </div>
       </form>
     </div>
   )

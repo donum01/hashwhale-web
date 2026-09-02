@@ -10,7 +10,7 @@ export function AssetChip({ asset, size = 32 }: { asset: AssetSymbol; size?: num
         height: size,
         background: config.color,
         fontSize: size * 0.34,
-        boxShadow: `0 2px 8px ${config.color}55`,
+        boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.2)`,
       }}
       aria-hidden="true"
     >

@@ -91,18 +91,6 @@ export function ltvTierColorVar(tier: LtvTier): string {
   return tier === "danger" ? "var(--hw-ltv-danger)" : tier === "warn" ? "var(--hw-ltv-warn)" : "var(--hw-ltv-safe)"
 }
 
-export const currencyUsd = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-})
-
-export const currencyUsdPrecise = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 2,
-})
-
 export const loanDateTimeFormatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
   timeStyle: "short",

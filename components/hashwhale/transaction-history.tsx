@@ -1,7 +1,7 @@
 "use client"
 
-import { ArrowDownToLine, ArrowUpFromLine, History, Repeat } from "lucide-react"
-import { currencyUsdPrecise } from "@/lib/borrow"
+import { ArrowDownToLine, ArrowUpFromLine, ChevronDown, History, Loader2, Repeat } from "lucide-react"
+import { formatAssetAmount } from "@/lib/format"
 import { dateFormatter, TRANSACTION_LABELS, type WalletTransaction } from "@/lib/wallet"
 import { AssetChip } from "./asset-chip"
 
@@ -19,19 +19,30 @@ function statusColor(status: WalletTransaction["status"]): string {
 
 export function TransactionHistory({
   transactions,
-  title = "Recent Activity",
+  title = "Recent activity",
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
 }: {
   transactions: WalletTransaction[]
   title?: string
+  hasMore?: boolean
+  loadingMore?: boolean
+  onLoadMore?: () => void
 }) {
   return (
-    <div className="hw-card p-5">
-      <h2 className="mb-4 text-lg font-bold" style={{ color: "var(--hw-text)" }}>
-        {title}
-      </h2>
+    <section className="hw-card overflow-hidden">
+      <div className="hw-panel-header">
+        <div>
+          <h2 className="text-lg font-semibold" style={{ color: "var(--hw-text)" }}>{title}</h2>
+          <p className="mt-1 text-xs" style={{ color: "var(--hw-muted)" }}>
+            {transactions.length > 0 ? `Showing ${transactions.length} · newest first` : "Newest transactions first"}
+          </p>
+        </div>
+      </div>
 
       {transactions.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 py-10 text-center">
+        <div className="flex flex-col items-center gap-3 px-5 py-10 text-center">
           <span
             className="flex h-12 w-12 items-center justify-center rounded-full"
             style={{ background: "var(--hw-primary-soft)", color: "var(--hw-primary)" }}
@@ -43,9 +54,12 @@ export function TransactionHistory({
           </p>
         </div>
       ) : (
-        <div className="flex flex-col divide-y" style={{ borderColor: "var(--hw-input-border)" }}>
+        <div className="flex flex-col">
           {transactions.map((tx, i) => (
-            <div key={i} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+            <div
+              key={`${tx.createdAt}-${tx.type}-${tx.asset}-${tx.amount}-${i}`}
+              className="hw-data-row flex items-center justify-between gap-3 px-5 py-3.5"
+            >
               <div className="flex items-center gap-3">
                 <span
                   className="flex h-9 w-9 items-center justify-center rounded-full"
@@ -65,7 +79,7 @@ export function TransactionHistory({
               <div className="flex items-center gap-3">
                 <div className="text-right">
                   <p className="text-sm font-bold tabular-nums" style={{ color: "var(--hw-text)" }}>
-                    {tx.amount} {tx.asset}
+                    {formatAssetAmount(tx.amount, tx.asset)}
                   </p>
                   <p
                     className="text-xs font-medium capitalize"
@@ -78,8 +92,24 @@ export function TransactionHistory({
               </div>
             </div>
           ))}
+          {hasMore && onLoadMore ? (
+            <div className="flex justify-center border-t px-5 py-4" style={{ borderColor: "var(--hw-card-border)" }}>
+              <button
+                type="button"
+                onClick={onLoadMore}
+                disabled={loadingMore}
+                className="hw-btn-outline flex h-9 items-center justify-center gap-2 px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loadingMore ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Loading</>
+                ) : (
+                  <>Load 10 more <ChevronDown className="h-4 w-4" /></>
+                )}
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
-    </div>
+    </section>
   )
 }

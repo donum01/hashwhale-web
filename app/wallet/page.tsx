@@ -1,18 +1,18 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Info } from "lucide-react"
+import { AppShell } from "@/components/hashwhale/app-shell"
 import { useTheme } from "@/components/hashwhale/theme-provider"
-import { Toast } from "@/components/hashwhale/toast"
+import { Toast, type ToastVariant } from "@/components/hashwhale/toast"
 import { TransactionHistory } from "@/components/hashwhale/transaction-history"
 import { WalletBalanceCard } from "@/components/hashwhale/wallet-balance-card"
 import {
   apiBorrowConfigurationToBorrowConfiguration,
-  currencyUsd,
   PRICE_CONFIGURATION_POLL_MS,
   type AssetSymbol,
   type BorrowConfiguration,
 } from "@/lib/borrow"
+import { usdValueFormatter } from "@/lib/format"
 import {
   apiBalanceToBalance,
   apiTransactionToTransaction,
@@ -22,24 +22,28 @@ import {
   type WalletTransaction,
 } from "@/lib/wallet"
 import { api } from "@/lib/api"
-import { getUserId } from "@/lib/auth"
-import { Nav } from "@/components/hashwhale/nav"
+import { HISTORY_BATCH_SIZE, historyPageState, type HistoryPageState } from "@/lib/history"
 import { PriceStatus } from "@/components/hashwhale/price-status"
+import { useAuthUser } from "@/lib/use-auth-user"
+
+const EMPTY_HISTORY_PAGE: HistoryPageState = { hasMore: false, nextCursor: null }
 
 export default function WalletPage() {
   const { theme, toggleTheme } = useTheme()
   const [balances, setBalances] = useState<WalletBalance[]>([])
   const [transactions, setTransactions] = useState<WalletTransaction[]>([])
+  const [transactionPage, setTransactionPage] = useState<HistoryPageState>(EMPTY_HISTORY_PAGE)
+  const [loadingMoreTransactions, setLoadingMoreTransactions] = useState(false)
   const [configuration, setConfiguration] = useState<BorrowConfiguration | null>(null)
   const [loading, setLoading] = useState(true)
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string; variant: ToastVariant } | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const userId = getUserId()
+  const { userId, authReady } = useAuthUser()
 
-  function showToast(message: string) {
+  function showToast(message: string, variant: ToastVariant = "success") {
     if (toastTimer.current) clearTimeout(toastTimer.current)
-    setToast(message)
+    setToast({ message, variant })
     toastTimer.current = setTimeout(() => setToast(null), 3500)
   }
 
@@ -50,25 +54,55 @@ export default function WalletPage() {
     }
     const [balancesRes, txRes, configurationRes] = await Promise.all([
       api.GET("/api/wallet/balances"),
-      api.GET("/api/wallet/transactions"),
+      api.GET("/api/wallet/transactions", {
+        params: { query: { limit: HISTORY_BATCH_SIZE } },
+        cache: "no-store",
+      }),
       api.GET("/api/borrow/configuration", { cache: "no-store" }),
     ])
     if (balancesRes.data) setBalances(balancesRes.data.map(apiBalanceToBalance))
-    if (txRes.data) setTransactions(txRes.data.map(apiTransactionToTransaction))
+    if (txRes.data) {
+      setTransactions(txRes.data.map(apiTransactionToTransaction))
+      setTransactionPage(historyPageState(txRes.response, txRes.data.length))
+    }
     if (configurationRes.data) {
       setConfiguration(apiBorrowConfigurationToBorrowConfiguration(configurationRes.data))
     }
-    if (balancesRes.error || txRes.error || configurationRes.error) showToast("Could not load wallet data")
+    if (balancesRes.error || txRes.error || configurationRes.error) showToast("Could not load wallet data", "error")
     setLoading(false)
   }
 
   useEffect(() => {
+    if (!authReady) return
     refreshData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId])
+  }, [authReady, userId])
+
+  async function loadMoreTransactions() {
+    if (!transactionPage.hasMore || transactionPage.nextCursor == null || loadingMoreTransactions) return
+    setLoadingMoreTransactions(true)
+    try {
+      const response = await api.GET("/api/wallet/transactions", {
+        params: {
+          query: { limit: HISTORY_BATCH_SIZE, beforeId: transactionPage.nextCursor },
+        },
+        cache: "no-store",
+      })
+      if (response.error || !response.data) {
+        showToast("Could not load more wallet activity", "error")
+        return
+      }
+      setTransactions((current) => [...current, ...response.data.map(apiTransactionToTransaction)])
+      setTransactionPage(historyPageState(response.response, response.data.length))
+    } catch {
+      showToast("Could not reach the wallet service", "error")
+    } finally {
+      setLoadingMoreTransactions(false)
+    }
+  }
 
   useEffect(() => {
-    if (!userId) return
+    if (!authReady || !userId) return
 
     const refreshConfiguration = () => {
       void (async () => {
@@ -93,7 +127,7 @@ export default function WalletPage() {
       window.removeEventListener("focus", refreshConfiguration)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
-  }, [userId])
+  }, [authReady, userId])
 
   async function handleDeposit(asset: AssetSymbol, amount: number) {
     if (!userId) return { ok: false as const, message: "You must be logged in." }
@@ -127,24 +161,14 @@ export default function WalletPage() {
   const total = configuration ? totalPortfolioValue(balances, configuration.usdPrices) : 0
 
   return (
-    <main
-      className={`hw ${theme === "dark" ? "hw-dark" : "hw-light"} relative min-h-svh overflow-hidden transition-colors duration-300`}
-      style={{ background: "var(--hw-bg)", color: "var(--hw-text)" }}
-    >
-      <div className="hw-glow pointer-events-none absolute left-1/2 top-0 h-[520px] w-[520px]" aria-hidden="true" />
-
-      <div className="relative z-10 mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
-        <header className="mb-8 flex items-center justify-between">
-          <Nav theme={theme} onToggleTheme={toggleTheme} />
-        </header>
-
-        {!userId ? (
-          <p className="text-sm" style={{ color: "var(--hw-error)" }}>
-            Please log in to view your wallet.
-          </p>
-        ) : loading ? (
+    <AppShell theme={theme} onToggleTheme={toggleTheme}>
+        {!authReady || loading ? (
           <p className="text-sm" style={{ color: "var(--hw-muted)" }}>
             Loading your wallet…
+          </p>
+        ) : !userId ? (
+          <p className="text-sm" style={{ color: "var(--hw-error)" }}>
+            Please log in to view your wallet.
           </p>
         ) : !configuration ? (
           <p className="text-sm" style={{ color: "var(--hw-error)" }}>
@@ -152,37 +176,31 @@ export default function WalletPage() {
           </p>
         ) : (
           <div className="flex flex-col gap-6">
-            <PriceStatus configuration={configuration} />
-            <div
-              className="hw-card flex items-start gap-3 p-4"
-              style={{ borderColor: "var(--hw-primary)", background: "var(--hw-primary-soft)" }}
-              role="note"
-              aria-label="Wallet simulation notice"
-            >
-              <Info className="mt-0.5 h-5 w-5 shrink-0" style={{ color: "var(--hw-primary)" }} />
+            <section className="hw-page-header" aria-labelledby="wallet-heading">
               <div>
-                <p className="text-sm font-bold" style={{ color: "var(--hw-text)" }}>
-                  Simulation mode
-                </p>
-                <p className="mt-0.5 text-xs leading-relaxed" style={{ color: "var(--hw-muted)" }}>
-                  Deposits and withdrawals only update this demo&apos;s internal ledger. No blockchain
-                  transaction occurs and no real assets or money are moved.
+                <p className="hw-eyebrow">Portfolio</p>
+                <h1 id="wallet-heading" className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+                  Wallet
+                </h1>
+                <p className="mt-1.5 text-sm" style={{ color: "var(--hw-muted)" }}>
+                  View available funds, locked balances, and account activity.
                 </p>
               </div>
-            </div>
+            </section>
+            <PriceStatus configuration={configuration} />
 
             {/* Hero summary */}
-            <div className="hw-card-in hw-card p-6 sm:p-8">
-              <p className="text-sm font-medium" style={{ color: "var(--hw-muted)" }}>
-                Total Portfolio Value
+            <div className="hw-card-in hw-card p-5 sm:p-7">
+              <p className="hw-eyebrow">
+                Total portfolio value
               </p>
               <p
-                className="mt-1 text-4xl font-bold tabular-nums tracking-tight sm:text-5xl"
+                className="mt-3 text-3xl font-semibold tabular-nums tracking-tight sm:text-4xl"
                 style={{ color: "var(--hw-text)" }}
               >
-                {currencyUsd.format(total)}
+                {usdValueFormatter.format(total)}
               </p>
-              <p className="mt-2 text-xs" style={{ color: "var(--hw-muted)" }}>
+              <p className="mt-2 text-sm" style={{ color: "var(--hw-muted)" }}>
                 Across {displayBalances.filter((b) => b.availableAmount + b.lockedAmount > 0).length} of{" "}
                 {displayBalances.length} assets
               </p>
@@ -190,10 +208,13 @@ export default function WalletPage() {
 
             {/* Balance cards */}
             <div>
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide" style={{ color: "var(--hw-muted)" }}>
-                Assets
-              </h2>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mb-3 flex items-end justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold">Assets</h2>
+                  <p className="mt-1 text-xs" style={{ color: "var(--hw-muted)" }}>Available and committed balances</p>
+                </div>
+              </div>
+              <div className="hw-card overflow-hidden">
                 {displayBalances.map((b) => (
                   <WalletBalanceCard
                     key={b.asset}
@@ -206,14 +227,17 @@ export default function WalletPage() {
               </div>
             </div>
 
-            <TransactionHistory transactions={transactions} />
+            <TransactionHistory
+              transactions={transactions}
+              hasMore={transactionPage.hasMore}
+              loadingMore={loadingMoreTransactions}
+              onLoadMore={() => void loadMoreTransactions()}
+            />
           </div>
         )}
-      </div>
-
       <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
-        {toast ? <Toast message={toast} /> : null}
+        {toast ? <Toast message={toast.message} variant={toast.variant} /> : null}
       </div>
-    </main>
+    </AppShell>
   )
 }

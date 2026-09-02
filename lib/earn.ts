@@ -96,10 +96,6 @@ export function estimatedProductRewards(product: EarnProduct, amount: number): n
   return amount * (product.apy / 100) * (earningDays / 365)
 }
 
-export const assetAmountFormatter = new Intl.NumberFormat("en-US", {
-  maximumFractionDigits: 8,
-})
-
 export const earnDateFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
   month: "short",

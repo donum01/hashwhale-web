@@ -851,7 +851,14 @@ export interface operations {
     };
     getPositions: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum records to return */
+                limit?: number;
+                /** @description Cursor returned by the previous response */
+                beforeId?: number;
+                /** @description Optional repeatable position-status filter */
+                status?: ("ACTIVE" | "WITHDRAWN")[];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -989,7 +996,14 @@ export interface operations {
     };
     getLoansForUser: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum records to return */
+                limit?: number;
+                /** @description Cursor returned by the previous response */
+                beforeId?: number;
+                /** @description Optional repeatable loan-status filter */
+                status?: ("ACTIVE" | "REPAID" | "LIQUIDATED")[];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1187,7 +1201,14 @@ export interface operations {
     };
     getTransactions: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum records to return */
+                limit?: number;
+                /** @description Cursor returned by the previous response */
+                beforeId?: number;
+                /** @description Optional repeatable transaction-type filter */
+                type?: ("DEPOSIT" | "WITHDRAW" | "BORROW" | "REPAY" | "EARN_SUBSCRIBE" | "EARN_WITHDRAW")[];
+            };
             header?: never;
             path?: never;
             cookie?: never;
